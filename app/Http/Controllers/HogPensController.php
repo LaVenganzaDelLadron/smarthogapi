@@ -10,33 +10,98 @@ class HogPensController extends Controller
 {
     public function index(): JsonResponse
     {
-        $hogpens = Hogpens::with('farm', 'hogs', 'feeders', 'sensors')->get();
-        return response()->json($hogpens);
+        try {
+            $hogpens = Hogpens::with('farm', 'hogs', 'feeders', 'sensors')->get();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Hog pens retrieved successfully',
+                'data' => $hogpens,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve hog pens',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
 
     public function store(HogPensRequests $request): JsonResponse
     {
-        $hogpen = Hogpens::create($request->validated());
-        $hogpen->load('farm');
-        return response()->json($hogpen, 201);
+        try {
+            $hogpen = Hogpens::create($request->validated());
+            $hogpen->load('farm');
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Hog pen created successfully',
+                'data' => $hogpen,
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create hog pen',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
 
     public function show(Hogpens $hogpen): JsonResponse
     {
-        $hogpen->load('farm', 'hogs.hogDailyRecords');
-        return response()->json($hogpen);
+        try {
+            $hogpen->load('farm', 'hogs.hogDailyRecords');
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Hog pen retrieved successfully',
+                'data' => $hogpen,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve hog pen',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
 
     public function update(HogPensRequests $request, Hogpens $hogpen): JsonResponse
     {
-        $hogpen->update($request->validated());
-        $hogpen->load('hogs');
-        return response()->json($hogpen);
+        try {
+            $hogpen->update($request->validated());
+            $hogpen->load('hogs');
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Hog pen updated successfully',
+                'data' => $hogpen,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update hog pen',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
 
     public function destroy(Hogpens $hogpen): JsonResponse
     {
-        $hogpen->delete();
-        return response()->json(null, 204);
+        try {
+            $hogpen->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Hog pen deleted successfully',
+                'data' => null,
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete hog pen',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
 }

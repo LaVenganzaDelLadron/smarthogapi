@@ -31,7 +31,7 @@ class AuthController extends Controller
             [
                 'message' => 'User registered successfully.',
                 'token' => $token,
-                'user' => $user
+                'user' => $user,
             ],
             201);
     }
@@ -48,17 +48,16 @@ class AuthController extends Controller
 
         $user = User::where('email', $validated['email'])->first();
 
-        if (!$user) {
+        if (! $user) {
             return response()->json(['message' => 'User login failed.'], 500);
         }
-
 
         $token = $user->createToken('sanctum')->plainTextToken;
 
         return response()->json([
             'message' => 'User logged in successfully.',
             'token' => $token,
-            'user' => $user
+            'user' => $user,
         ], 200);
     }
 }

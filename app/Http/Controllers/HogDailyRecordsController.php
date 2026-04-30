@@ -10,30 +10,96 @@ class HogDailyRecordsController extends Controller
 {
     public function index(): JsonResponse
     {
-        return response()->json(HogDailyRecords::with('hog.hogpen')->get());
+        try {
+            $records = HogDailyRecords::with('hog.hogpen')->get();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Hog daily records retrieved successfully',
+                'data' => $records,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve hog daily records',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
 
     public function store(HogDailyRecordsRequests $request): JsonResponse
     {
-        $record = HogDailyRecords::create($request->validated());
-        return response()->json($record, 201);
+        try {
+            $record = HogDailyRecords::create($request->validated());
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Hog daily record created successfully',
+                'data' => $record,
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create hog daily record',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
 
-    public function show(HogDailyRecords $hogDailyRecords)
+    public function show(HogDailyRecords $hogDailyRecords): JsonResponse
     {
-        return response()->json($hogDailyRecords->load('hog'));
+        try {
+            $hogDailyRecords->load('hog');
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Hog daily record retrieved successfully',
+                'data' => $hogDailyRecords,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve hog daily record',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
 
-    public function update(HogDailyRecordsRequests $request, HogDailyRecords $hogDailyRecords)
+    public function update(HogDailyRecordsRequests $request, HogDailyRecords $hogDailyRecords): JsonResponse
     {
-        $hogDailyRecords->update($request->validated());
-        return response()->json($hogDailyRecords);
+        try {
+            $hogDailyRecords->update($request->validated());
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Hog daily record updated successfully',
+                'data' => $hogDailyRecords,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update hog daily record',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
 
-    public function destroy(HogDailyRecords $hogDailyRecords)
+    public function destroy(HogDailyRecords $hogDailyRecords): JsonResponse
     {
-        $hogDailyRecords->delete();
-        return response()->json(null, 204);
+        try {
+            $hogDailyRecords->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Hog daily record deleted successfully',
+                'data' => null,
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete hog daily record',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
 }
-
