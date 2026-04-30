@@ -6,33 +6,63 @@ use App\Models\FeederFeedTypeMapping;
 use App\Models\Feeders;
 use App\Models\FeedingQueue;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Redis;
 
 class FeedingQueueService
 {
     /**
-     * Get next pending feeding jobs for a feeder.
+     * Get next pending feeding jobs for a feeder with Redis locking.
      */
     public function getNextJobs(int $feederId, int $maxJobs = 1): Collection
     {
-        return FeedingQueue::where('feeder_id', $feederId)
-            ->where('status', 'pending')
-            ->orderBy('scheduled_at', 'asc')
-            ->limit($maxJobs)
-            ->get()
-            ->map(function (FeedingQueue $job) {
-                $mapping = FeederFeedTypeMapping::where('feeder_id', $job->feeder_id)
-                    ->where('feed_type', $job->feed_type)
-                    ->firstOrFail();
+        // Try to acquire Redis lock to prevent concurrent feeding
+        $lockKey = "feeder:{$feederId}:processing";
+        if (! Redis::set($lockKey, time(), 'NX', 'EX', 30)) {
+            // Feeder already processing
+            return collect();
+        }
 
-                return [
-                    'id' => $job->id,
-                    'feed_type' => $job->feed_type,
-                    'relay_pin' => $mapping->relay_pin,
-                    'max_duration_seconds' => $mapping->max_duration_seconds,
-                    'hog_pen_id' => $job->hog_pen_id,
-                    'scheduled_at' => $job->scheduled_at,
-                ];
-            });
+        try {
+            $jobs = FeedingQueue::where('feeder_id', $feederId)
+                ->where('status', 'pending')
+                ->orderBy('scheduled_at', 'asc')
+                ->limit($maxJobs)
+                ->get()
+                ->map(function (FeedingQueue $job) {
+                    $mapping = FeederFeedTypeMapping::where('feeder_id', $job->feeder_id)
+                        ->where('feed_type', $job->feed_type)
+                        ->firstOrFail();
+
+                    return [
+                        'id' => $job->id,
+                        'feed_type' => $job->feed_type,
+                        'relay_pin' => $mapping->relay_pin,
+                        'max_duration_seconds' => $mapping->max_duration_seconds,
+                        'hog_pen_id' => $job->hog_pen_id,
+                        'scheduled_at' => $job->scheduled_at,
+                    ];
+                });
+
+            // Cache relay config for ESP32 (24-hour TTL)
+            Cache::store('feeding_cache')->put(
+                "feeder:{$feederId}:config",
+                $this->getRelayConfig($feederId),
+                now()->addHours(24)
+            );
+
+            return $jobs;
+        } finally {
+            // Note: Lock will auto-expire after 30 seconds via Redis EX parameter
+        }
+    }
+
+    /**
+     * Release feeder lock after job completion.
+     */
+    public function releaseFeedingLock(int $feederId): void
+    {
+        Redis::del("feeder:{$feederId}:processing");
     }
 
     /**
@@ -143,6 +173,8 @@ class FeedingQueueService
                 'error',
                 errorMessage: 'Job stalled for >1 hour, skipping'
             );
+            // Increment error counter in Redis
+            Redis::incr('errors:stalled-jobs');
             $count++;
         }
 

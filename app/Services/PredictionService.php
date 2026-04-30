@@ -82,8 +82,8 @@ class PredictionService
     {
         $cacheKey = 'ml_service_health_status';
 
-        // Return cached health status if available
-        $cached = Cache::get($cacheKey);
+        // Return cached health status if available (Redis DB 1)
+        $cached = Cache::store('redis')->get($cacheKey);
         if ($cached !== null) {
             return $cached === 'healthy';
         }
@@ -93,8 +93,8 @@ class PredictionService
 
             $isHealthy = $response->successful();
 
-            // Cache health status for 5 minutes
-            Cache::put($cacheKey, $isHealthy ? 'healthy' : 'unhealthy', now()->addMinutes(self::HEALTH_CHECK_CACHE_MINUTES));
+            // Cache health status for 5 minutes in Redis
+            Cache::store('redis')->put($cacheKey, $isHealthy ? 'healthy' : 'unhealthy', now()->addMinutes(self::HEALTH_CHECK_CACHE_MINUTES));
 
             if (! $isHealthy) {
                 Log::warning("ML service health check failed with status {$response->status()}");
@@ -105,7 +105,7 @@ class PredictionService
             Log::warning("ML service health check error: {$e->getMessage()}");
 
             // Cache as unhealthy
-            Cache::put($cacheKey, 'unhealthy', now()->addMinutes(self::HEALTH_CHECK_CACHE_MINUTES));
+            Cache::store('redis')->put($cacheKey, 'unhealthy', now()->addMinutes(self::HEALTH_CHECK_CACHE_MINUTES));
 
             return false;
         }
@@ -135,21 +135,22 @@ class PredictionService
     }
 
     /**
-     * Cache prediction result
+     * Cache prediction result in Redis
      */
     private function cachePrediction(int $hogId, array $prediction): void
     {
         $cacheKey = "hog_prediction_{$hogId}";
-        Cache::put($cacheKey, $prediction, now()->addHours(self::CACHE_TTL_HOURS));
+        // Store in Redis cache database (DB 1) with 24-hour TTL
+        Cache::store('redis')->put($cacheKey, $prediction, now()->addHours(self::CACHE_TTL_HOURS));
     }
 
     /**
-     * Get cached prediction or return warning
+     * Get cached prediction from Redis or return failure
      */
     private function getCachedPrediction(int $hogId): array
     {
         $cacheKey = "hog_prediction_{$hogId}";
-        $cached = Cache::get($cacheKey);
+        $cached = Cache::store('redis')->get($cacheKey);
 
         if ($cached) {
             Log::info("Returning cached prediction for hog {$hogId}");
