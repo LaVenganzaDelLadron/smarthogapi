@@ -9,6 +9,7 @@ use App\Http\Controllers\FarmsController;
 use App\Http\Controllers\FeedersController;
 use App\Http\Controllers\FeedingLogsController;
 use App\Http\Controllers\FeedingPredictionsController;
+use App\Http\Controllers\FeedingQueueController;
 use App\Http\Controllers\FeedingScheduleController;
 use App\Http\Controllers\HogDailyRecordsController;
 use App\Http\Controllers\HogHealthPredictionsController;
@@ -18,6 +19,7 @@ use App\Http\Controllers\IotDevicesController;
 use App\Http\Controllers\MlModelsController;
 use App\Http\Controllers\SensorReadingsController;
 use App\Http\Controllers\SensorsController;
+use App\Services\PredictionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -41,6 +43,14 @@ Route::prefix('/v1')->group(function () {
             Route::get('/pen-ranking', 'penRanking');
         });
 
+        Route::prefix('predictions')->group(function () {
+            Route::post('/hog-health/{hogId}', function (int $hogId, PredictionService $service) {
+                $result = $service->predictHogHealth($hogId);
+
+                return response()->json($result, $result['success'] ? 201 : 400);
+            });
+        });
+
         Route::apiResource('farms', FarmsController::class);
         Route::apiResource('hogpens', HogPensController::class);
         Route::apiResource('hogs', HogsController::class);
@@ -57,5 +67,17 @@ Route::prefix('/v1')->group(function () {
         Route::apiResource('hog-health-predictions', HogHealthPredictionsController::class);
         Route::apiResource('ml-models', MlModelsController::class);
         Route::apiResource('feeding-predictions', FeedingPredictionsController::class);
+
+        // ESP32 Feeding Queue Routes
+        Route::prefix('feeding-queue')->controller(FeedingQueueController::class)->group(function () {
+            Route::get('/', 'index'); // List all jobs (debugging)
+            Route::get('/{feedingQueue}', 'show'); // Get specific job
+            Route::post('/next-job', 'nextJob'); // Get next pending job for ESP32
+            Route::patch('/{feedingQueue}', 'update'); // Update job status after execution
+        });
+
+        Route::prefix('feeders')->controller(FeedingQueueController::class)->group(function () {
+            Route::get('/{feeder}/relay-config', 'getRelayConfig'); // Get relay config for ESP32
+        });
     });
 });
