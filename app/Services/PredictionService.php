@@ -131,7 +131,13 @@ class PredictionService
             throw new Exception("ML API error: HTTP {$response->status()}");
         }
 
-        return $response->json();
+        // New response format has 'prediction' nested inside
+        $data = $response->json();
+        if (isset($data['prediction'])) {
+            return $data['prediction'];
+        }
+
+        return $data;
     }
 
     /**
@@ -227,6 +233,282 @@ class PredictionService
     }
 
     /**
+     * Predict feed demand for a farm
+     */
+    public function predictFeedDemand(int $farmId): array
+    {
+        try {
+            if (! $this->isServiceHealthy()) {
+                Log::warning("ML service unhealthy. Using cached feed demand for farm {$farmId}");
+
+                return $this->getCachedFeedDemand($farmId);
+            }
+
+            $response = Http::timeout(self::TIMEOUT_SECONDS)
+                ->post("{$this->baseUrl}/predict/feed-demand", ['farm_id' => $farmId]);
+
+            if (! $response->successful()) {
+                throw new Exception("ML API error: HTTP {$response->status()}");
+            }
+
+            $data = $response->json();
+            $prediction = isset($data['prediction']) ? $data['prediction'] : $data;
+            $this->cacheFeedDemand($farmId, $prediction);
+
+            Log::info("Feed demand forecast for farm {$farmId}", [
+                'tomorrow_kg' => $prediction['tomorrow_feed_kg'] ?? 0,
+                'weekly_kg' => $prediction['weekly_feed_kg'] ?? 0,
+            ]);
+
+            return [
+                'success' => true,
+                'data' => $prediction,
+                'cached' => false,
+            ];
+        } catch (Exception $e) {
+            Log::error("Feed demand prediction failed for farm {$farmId}: {$e->getMessage()}");
+
+            return $this->getCachedFeedDemand($farmId);
+        }
+    }
+
+    /**
+     * Predict weight growth for a hog
+     */
+    public function predictWeightGrowth(int $hogId): array
+    {
+        try {
+            if (! $this->isServiceHealthy()) {
+                return $this->getCachedWeightGrowth($hogId);
+            }
+
+            $response = Http::timeout(self::TIMEOUT_SECONDS)
+                ->post("{$this->baseUrl}/predict/weight-growth", ['hog_id' => $hogId]);
+
+            if (! $response->successful()) {
+                throw new Exception("ML API error: HTTP {$response->status()}");
+            }
+
+            $data = $response->json();
+            $prediction = isset($data['prediction']) ? $data['prediction'] : $data;
+            $this->cacheWeightGrowth($hogId, $prediction);
+
+            Log::info("Weight growth forecast for hog {$hogId}", [
+                'next_week_kg' => $prediction['next_week_weight'] ?? 0,
+                'next_month_kg' => $prediction['next_month_weight'] ?? 0,
+            ]);
+
+            return [
+                'success' => true,
+                'data' => $prediction,
+                'cached' => false,
+            ];
+        } catch (Exception $e) {
+            Log::error("Weight growth prediction failed for hog {$hogId}: {$e->getMessage()}");
+
+            return $this->getCachedWeightGrowth($hogId);
+        }
+    }
+
+    /**
+     * Predict disease outbreak risk for a pen
+     */
+    public function predictOutbreakRisk(int $penId): array
+    {
+        try {
+            if (! $this->isServiceHealthy()) {
+                return $this->getCachedOutbreakRisk($penId);
+            }
+
+            $response = Http::timeout(self::TIMEOUT_SECONDS)
+                ->post("{$this->baseUrl}/predict/outbreak-risk", ['pen_id' => $penId]);
+
+            if (! $response->successful()) {
+                throw new Exception("ML API error: HTTP {$response->status()}");
+            }
+
+            $data = $response->json();
+            $prediction = isset($data['prediction']) ? $data['prediction'] : $data;
+            $this->cacheOutbreakRisk($penId, $prediction);
+
+            if (($prediction['risk_level'] ?? 'LOW') === 'HIGH') {
+                Log::critical("High outbreak risk detected for pen {$penId}", $prediction);
+            } else {
+                Log::info("Outbreak risk assessment for pen {$penId}", [
+                    'risk_level' => $prediction['risk_level'] ?? 'LOW',
+                    'risk_score' => $prediction['risk_score'] ?? 0,
+                ]);
+            }
+
+            return [
+                'success' => true,
+                'data' => $prediction,
+                'cached' => false,
+            ];
+        } catch (Exception $e) {
+            Log::error("Outbreak risk prediction failed for pen {$penId}: {$e->getMessage()}");
+
+            return $this->getCachedOutbreakRisk($penId);
+        }
+    }
+
+    /**
+     * Predict device maintenance risk
+     */
+    public function predictDeviceRisk(int $deviceId): array
+    {
+        try {
+            if (! $this->isServiceHealthy()) {
+                return $this->getCachedDeviceRisk($deviceId);
+            }
+
+            $response = Http::timeout(self::TIMEOUT_SECONDS)
+                ->post("{$this->baseUrl}/predict/device-risk", ['device_id' => $deviceId]);
+
+            if (! $response->successful()) {
+                throw new Exception("ML API error: HTTP {$response->status()}");
+            }
+
+            $data = $response->json();
+            $prediction = isset($data['prediction']) ? $data['prediction'] : $data;
+            $this->cacheDeviceRisk($deviceId, $prediction);
+
+            if (($prediction['status'] ?? 'Normal') !== 'Normal') {
+                Log::warning("Device {$deviceId} maintenance alert", [
+                    'status' => $prediction['status'] ?? 'Unknown',
+                    'days_until_failure' => $prediction['days_until_failure'] ?? 'Unknown',
+                ]);
+            }
+
+            return [
+                'success' => true,
+                'data' => $prediction,
+                'cached' => false,
+            ];
+        } catch (Exception $e) {
+            Log::error("Device risk prediction failed for device {$deviceId}: {$e->getMessage()}");
+
+            return $this->getCachedDeviceRisk($deviceId);
+        }
+    }
+
+    /**
+     * Get cached feed demand
+     */
+    private function getCachedFeedDemand(int $farmId): array
+    {
+        $cached = Cache::store('redis')->get("feed_demand_{$farmId}");
+
+        return $cached
+            ? [
+                'success' => true,
+                'data' => $cached,
+                'cached' => true,
+                'warning' => 'Using cached forecast',
+            ]
+            : [
+                'success' => false,
+                'cached' => false,
+                'error' => 'Feed demand forecast unavailable',
+            ];
+    }
+
+    /**
+     * Cache feed demand
+     */
+    private function cacheFeedDemand(int $farmId, array $data): void
+    {
+        Cache::store('redis')->put("feed_demand_{$farmId}", $data, now()->addHours(self::CACHE_TTL_HOURS));
+    }
+
+    /**
+     * Get cached weight growth
+     */
+    private function getCachedWeightGrowth(int $hogId): array
+    {
+        $cached = Cache::store('redis')->get("weight_growth_{$hogId}");
+
+        return $cached
+            ? [
+                'success' => true,
+                'data' => $cached,
+                'cached' => true,
+                'warning' => 'Using cached forecast',
+            ]
+            : [
+                'success' => false,
+                'cached' => false,
+                'error' => 'Weight growth forecast unavailable',
+            ];
+    }
+
+    /**
+     * Cache weight growth
+     */
+    private function cacheWeightGrowth(int $hogId, array $data): void
+    {
+        Cache::store('redis')->put("weight_growth_{$hogId}", $data, now()->addHours(self::CACHE_TTL_HOURS));
+    }
+
+    /**
+     * Get cached outbreak risk
+     */
+    private function getCachedOutbreakRisk(int $penId): array
+    {
+        $cached = Cache::store('redis')->get("outbreak_risk_{$penId}");
+
+        return $cached
+            ? [
+                'success' => true,
+                'data' => $cached,
+                'cached' => true,
+                'warning' => 'Using cached assessment',
+            ]
+            : [
+                'success' => false,
+                'cached' => false,
+                'error' => 'Outbreak risk assessment unavailable',
+            ];
+    }
+
+    /**
+     * Cache outbreak risk
+     */
+    private function cacheOutbreakRisk(int $penId, array $data): void
+    {
+        Cache::store('redis')->put("outbreak_risk_{$penId}", $data, now()->addHours(self::CACHE_TTL_HOURS));
+    }
+
+    /**
+     * Get cached device risk
+     */
+    private function getCachedDeviceRisk(int $deviceId): array
+    {
+        $cached = Cache::store('redis')->get("device_risk_{$deviceId}");
+
+        return $cached
+            ? [
+                'success' => true,
+                'data' => $cached,
+                'cached' => true,
+                'warning' => 'Using cached assessment',
+            ]
+            : [
+                'success' => false,
+                'cached' => false,
+                'error' => 'Device risk assessment unavailable',
+            ];
+    }
+
+    /**
+     * Cache device risk
+     */
+    private function cacheDeviceRisk(int $deviceId, array $data): void
+    {
+        Cache::store('redis')->put("device_risk_{$deviceId}", $data, now()->addHours(self::CACHE_TTL_HOURS));
+    }
+
+    /**
      * Map ML prediction status to hog health_status
      */
     private function mapPredictionToStatus(string $predictedStatus): string
@@ -239,3 +521,4 @@ class PredictionService
         };
     }
 }
+
