@@ -7,6 +7,7 @@ use App\Http\Requests\RegisterRequest;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -23,10 +24,6 @@ class AuthController extends Controller
 
         $token = $user->createToken('sanctum')->plainTextToken;
 
-        if (! $user) {
-            return response()->json(['message' => 'User registration failed.'], 500);
-        }
-
         return response()->json(
             [
                 'message' => 'User registered successfully.',
@@ -41,16 +38,10 @@ class AuthController extends Controller
         $validated = $request->validated();
 
         if (! Auth::attempt($validated)) {
-            throw ValidationException::withMessages([
-                'email' => 'Invalid credentials.',
-            ]);
+            return new JsonResponse(['message' => 'Invalid credentials.'], 401);
         }
 
-        $user = User::where('email', $validated['email'])->first();
-
-        if (! $user) {
-            return response()->json(['message' => 'User login failed.'], 500);
-        }
+        $user = Auth::user();
 
         $token = $user->createToken('sanctum')->plainTextToken;
 
