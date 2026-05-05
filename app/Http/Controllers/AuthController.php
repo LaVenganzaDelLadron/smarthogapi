@@ -50,7 +50,7 @@ class AuthController extends Controller
         // 🔥 Call Sinric API
         try {
             $sinricResponse = Http::asForm()->withHeaders([
-                'x-sinric-api-key' => env('37f2f045-bb06-4ef9-885d-59e3c6ce8be6'),
+                'x-sinric-api-key' => env('71db0e1d-231c-4a07-8ad4-35f5131ed3ea'),
             ])->post('https://api.sinric.pro/api/v1/auth', [
                 'client_id' => 'android-app',
                 'username' => $user->email, // or mapped username
