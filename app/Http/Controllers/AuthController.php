@@ -47,30 +47,9 @@ class AuthController extends Controller
         // Laravel token
         $token = $user->createToken('sanctum')->plainTextToken;
 
-        // 🔥 Call Sinric API
-        try {
-            $sinricResponse = Http::asForm()->withHeaders([
-                'x-sinric-api-key' => env('71db0e1d-231c-4a07-8ad4-35f5131ed3ea'),
-            ])->post('https://api.sinric.pro/api/v1/auth', [
-                'client_id' => 'android-app',
-                'username' => $user->email, // or mapped username
-                'password' => $request->password, // careful here
-            ]);
-
-            $sinricToken = null;
-
-            if ($sinricResponse->successful()) {
-                $sinricToken = $sinricResponse->json()['accessToken'] ?? null;
-            }
-
-        } catch (\Exception $e) {
-            $sinricToken = null; // don't break login if Sinric fails
-        }
-
         return response()->json([
             'message' => 'User logged in successfully.',
             'token' => $token,
-            'sinric_token' => $sinricToken, // 👈 include this
             'user' => $user,
         ], 200);
     }

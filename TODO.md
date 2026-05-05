@@ -1,11 +1,10 @@
-# Predictive Feeding Analysis Implementation
+# Fix Login 500 Error
 
-1. [x] List ml-service files & read main.py
-2. [x] Edit ml-service/main.py: Add feeding prediction endpoint (complete)
-3. [x] Edit app/Services/PredictionService.php: Add predictPenFeeding (complete)
-4. [x] Create app/Jobs/PredictPenFeedingJob.php (complete)
-5. [x] Edit app/Models/FeedingPredictions.php: Add relationships (complete)
-6. [x] Edit app/Http/Controllers/FeedingPredictionsController.php: Add generate method
-7. [x] Edit routes/console.php: Schedule job
-8. [ ] Test: Run `php artisan schedule:run`, `php artisan queue:work`, POST /api/feeding-predictions/generate/1, check feeding_predictions table, ML logs
+## Steps:
+1. [x] Edit app/Http/Controllers/AuthController.php - Remove undefined `$sinricToken` from login response.
+2. [x] Run `php artisan migrate` to ensure all migrations including `personal_access_tokens` are applied. (All Ran)
+3. [x] Create test user: `darkglitch5417@gmail.com` / `Python!=5417` if not exists. (Exists ID=1)
+4. [x] Clear config cache: `php artisan config:clear`.
+5. [x] Test login endpoint.
 
+Login fixed! Test with your POST request to http://127.0.0.1:8000/api/auth/login.
