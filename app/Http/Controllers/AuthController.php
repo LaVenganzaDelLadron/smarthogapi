@@ -7,6 +7,7 @@ use App\Http\Requests\RegisterRequest;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
 
@@ -37,17 +38,39 @@ class AuthController extends Controller
     {
         $validated = $request->validated();
 
-        if (! Auth::attempt($validated)) {
+        if (!Auth::attempt($validated)) {
             return new JsonResponse(['message' => 'Invalid credentials.'], 401);
         }
 
         $user = Auth::user();
 
+        // Laravel token
         $token = $user->createToken('sanctum')->plainTextToken;
+
+        // 🔥 Call Sinric API
+        try {
+            $sinricResponse = Http::asForm()->withHeaders([
+                'x-sinric-api-key' => env('37f2f045-bb06-4ef9-885d-59e3c6ce8be6'),
+            ])->post('https://api.sinric.pro/api/v1/auth', [
+                'client_id' => 'android-app',
+                'username' => $user->email, // or mapped username
+                'password' => $request->password, // careful here
+            ]);
+
+            $sinricToken = null;
+
+            if ($sinricResponse->successful()) {
+                $sinricToken = $sinricResponse->json()['accessToken'] ?? null;
+            }
+
+        } catch (\Exception $e) {
+            $sinricToken = null; // don't break login if Sinric fails
+        }
 
         return response()->json([
             'message' => 'User logged in successfully.',
             'token' => $token,
+            'sinric_token' => $sinricToken, // 👈 include this
             'user' => $user,
         ], 200);
     }
