@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests;
 
-use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class HogsRequests extends FormRequest
@@ -60,5 +59,4 @@ class HogsRequests extends FormRequest
             'health_status.max' => 'The health status may not be greater than 100.',
         ];
     }
-
 }

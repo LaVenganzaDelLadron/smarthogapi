@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class IotDevices extends Model
 {
-    protected $table = "iot_devices";
+    protected $table = 'iot_devices';
 
     protected $fillable = ['hog_pen_id', 'type', 'api_provider', 'status'];
 

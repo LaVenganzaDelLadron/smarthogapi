@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests;
 
-use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class AlertsRequests extends FormRequest
@@ -53,5 +52,4 @@ class AlertsRequests extends FormRequest
             'severity.in' => 'Severity must be low, medium, high or critical.',
         ];
     }
-
 }

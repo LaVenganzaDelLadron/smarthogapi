@@ -6,8 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class Hogs extends Model
 {
+    protected $table = 'hogs';
 
-    protected $table = "hogs";
     protected $fillable = ['hog_pen_id', 'ear_tag_id', 'breed', 'gender', 'current_age', 'weight_current', 'health_status'];
 
     public function hogpen()

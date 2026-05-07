@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests;
 
-use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class HogHealthPredictionsRequests extends FormRequest
@@ -49,5 +48,4 @@ class HogHealthPredictionsRequests extends FormRequest
             'risk_score.between' => 'The risk score must be between 0 and 1.',
         ];
     }
-
 }

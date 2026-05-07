@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests;
 
-use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class FeedersRequests extends FormRequest
@@ -53,5 +52,4 @@ class FeedersRequests extends FormRequest
             'last_refill.date' => 'The last refill must be a valid date.',
         ];
     }
-
 }

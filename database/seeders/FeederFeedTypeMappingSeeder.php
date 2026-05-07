@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\FeederFeedTypeMapping;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class FeederFeedTypeMappingSeeder extends Seeder

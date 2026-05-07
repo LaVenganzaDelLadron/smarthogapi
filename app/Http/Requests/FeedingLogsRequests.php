@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests;
 
-use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class FeedingLogsRequests extends FormRequest
@@ -54,5 +53,4 @@ class FeedingLogsRequests extends FormRequest
             'triggered.required' => 'The triggered field is required.',
         ];
     }
-
 }

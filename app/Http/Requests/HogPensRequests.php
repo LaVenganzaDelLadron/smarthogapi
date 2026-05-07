@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests;
 
-use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class HogPensRequests extends FormRequest
@@ -58,5 +57,4 @@ class HogPensRequests extends FormRequest
             'status.between' => 'The status must be 0 or 1.',
         ];
     }
-
 }

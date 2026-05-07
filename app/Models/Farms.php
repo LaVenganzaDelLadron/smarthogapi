@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Farms extends Model
 {
-    protected $table = "farms";
+    protected $table = 'farms';
 
     protected $fillable = ['user_id', 'location', 'timezone'];
 

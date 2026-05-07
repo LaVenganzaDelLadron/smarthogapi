@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class DeviceLogs extends Model
 {
-    protected $table = "device_logs";
+    protected $table = 'device_logs';
 
     protected $fillable = ['device_id', 'action', 'response'];
 

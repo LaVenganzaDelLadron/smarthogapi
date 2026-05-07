@@ -6,7 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class Sensors extends Model
 {
-    protected $table = "sensors";
+    protected $table = 'sensors';
+
     protected $fillable = ['hog_pen_id', 'sensor_type', 'device_id', 'status'];
 
     public function hogpen()

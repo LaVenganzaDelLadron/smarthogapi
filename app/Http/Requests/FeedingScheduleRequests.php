@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests;
 
-use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class FeedingScheduleRequests extends FormRequest
@@ -57,5 +56,4 @@ class FeedingScheduleRequests extends FormRequest
             'feed_type.max' => 'The feed type may not be greater than 50 characters.',
         ];
     }
-
 }

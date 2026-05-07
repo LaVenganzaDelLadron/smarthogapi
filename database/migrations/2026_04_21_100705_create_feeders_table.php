@@ -15,8 +15,8 @@ return new class extends Migration
             $table->id();
             $table->foreignId('hog_pen_id')->index();
             $table->foreignId('device_id');
-$table->string('status');
-$table->timestamp('last_refill')->nullable();
+            $table->string('status');
+            $table->timestamp('last_refill')->nullable();
             $table->timestamps();
         });
     }

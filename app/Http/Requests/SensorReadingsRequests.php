@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests;
 
-use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class SensorReadingsRequests extends FormRequest
@@ -49,5 +48,4 @@ class SensorReadingsRequests extends FormRequest
             'unit.required' => 'The unit is required.',
         ];
     }
-
 }

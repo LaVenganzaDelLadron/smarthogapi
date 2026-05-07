@@ -6,8 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Feeders extends Model
 {
-
-    protected $table = "feeders";
+    protected $table = 'feeders';
 
     protected $fillable = ['hog_pen_id', 'device_id', 'status', 'last_refill'];
 

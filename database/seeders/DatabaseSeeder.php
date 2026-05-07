@@ -2,23 +2,22 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
+use App\Models\Alerts;
+use App\Models\DailyFarmReports;
+use App\Models\DeviceLogs;
 use App\Models\Farms;
+use App\Models\Feeders;
+use App\Models\FeedingLogs;
+use App\Models\FeedingSchedule;
+use App\Models\HogDailyRecords;
+use App\Models\HogHealthPredictions;
 use App\Models\Hogpens;
 use App\Models\Hogs;
-use App\Models\Feeders;
-use App\Models\Sensors;
-use App\Models\FeedingSchedule;
-use App\Models\SensorReadings;
-use App\Models\FeedingLogs;
 use App\Models\IotDevices;
-use App\Models\DeviceLogs;
 use App\Models\MLModels;
-use App\Models\HogHealthPredictions;
-use App\Models\DailyFarmReports;
-use App\Models\Alerts;
-use App\Models\HogDailyRecords;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use App\Models\SensorReadings;
+use App\Models\Sensors;
+use App\Models\User;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
@@ -161,4 +160,3 @@ class DatabaseSeeder extends Seeder
         ]);
     }
 }
-

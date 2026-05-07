@@ -5,11 +5,9 @@ namespace App\Http\Controllers;
 use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
 use App\Models\User;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
@@ -38,7 +36,7 @@ class AuthController extends Controller
     {
         $validated = $request->validated();
 
-        if (!Auth::attempt($validated)) {
+        if (! Auth::attempt($validated)) {
             return new JsonResponse(['message' => 'Invalid credentials.'], 401);
         }
 

@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests;
 
-use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class MLModelsRequests extends FormRequest
@@ -48,5 +47,4 @@ class MLModelsRequests extends FormRequest
             'accuracy_score.between' => 'The accuracy score must be between 0 and 1.',
         ];
     }
-
 }

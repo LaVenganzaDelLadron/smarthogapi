@@ -39,4 +39,9 @@ return [
         'url' => env('PREDICTION_API_URL', 'http://localhost:5000'),
     ],
 
+    'fastapi' => [
+        'url' => env('FASTAPI_URL', 'http://localhost:5000'),
+        'timeout' => env('FASTAPI_TIMEOUT', 30),
+    ],
+
 ];

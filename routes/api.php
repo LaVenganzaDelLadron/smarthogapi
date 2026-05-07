@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AlertsController;
 use App\Http\Controllers\AnalyticsController;
+use App\Http\Controllers\Api\PredictionController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DailyFarmReportsController;
 use App\Http\Controllers\DeviceLogsController;
@@ -33,6 +34,9 @@ Route::prefix('/v1')->group(function () {
         return $request->user();
     });
 
+    // FastAPI health check (no auth required)
+    Route::get('/predictions/health', [PredictionController::class, 'health']);
+
     Route::middleware('auth:sanctum')->group(function () {
         Route::prefix('analytics')->controller(AnalyticsController::class)->group(function () {
             Route::get('/dashboard', 'dashboard');
@@ -49,6 +53,12 @@ Route::prefix('/v1')->group(function () {
 
                 return response()->json($result, $result['success'] ? 201 : 400);
             });
+
+            // FastAPI prediction endpoints
+            Route::post('/feed-recommendation', [PredictionController::class, 'feedRecommendation']);
+            Route::post('/weight-trend', [PredictionController::class, 'weightTrend']);
+            Route::post('/pen-status', [PredictionController::class, 'penStatus']);
+            Route::post('/batch/feed-recommendation', [PredictionController::class, 'batchFeedRecommendation']);
         });
 
         Route::apiResource('farms', FarmsController::class);
