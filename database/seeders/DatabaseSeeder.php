@@ -10,9 +10,10 @@ use App\Models\Feeders;
 use App\Models\FeedingLogs;
 use App\Models\FeedingSchedule;
 use App\Models\HogDailyRecords;
-use App\Models\HogHealthPredictions;
+
 use App\Models\Hogpens;
 use App\Models\Hogs;
+
 use App\Models\IotDevices;
 use App\Models\MLModels;
 use App\Models\SensorReadings;
@@ -53,7 +54,8 @@ class DatabaseSeeder extends Seeder
             'gender' => 'male',
             'current_age' => 120,
             'weight_current' => 50.5,
-            'health_status' => 'good',
+            'health_status' => 1,
+
         ]);
 
         // Feeders
@@ -118,13 +120,7 @@ class DatabaseSeeder extends Seeder
             'accuracy_score' => 0.92,
         ]);
 
-        // Hog Health Prediction
-        HogHealthPredictions::create([
-            'hog_id' => $hog->id,
-            'ml_model_id' => $mlModel->id,
-            'predicted_status' => 'healthy',
-            'risk_score' => 0.1,
-        ]);
+
 
         // Daily Farm Report
         DailyFarmReports::create([
@@ -152,7 +148,7 @@ class DatabaseSeeder extends Seeder
             'hog_pen_id' => $hogpen->id,
             'weight' => 51.0,
             'feed_consumed' => 2.5,
-            'health_status' => 'good',
+            'health_status' => 1,
             'temperature' => 38.5,
             'activity_level' => 'normal',
             'notes' => 'Healthy hog',

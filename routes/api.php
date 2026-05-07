@@ -13,7 +13,7 @@ use App\Http\Controllers\FeedingPredictionsController;
 use App\Http\Controllers\FeedingQueueController;
 use App\Http\Controllers\FeedingScheduleController;
 use App\Http\Controllers\HogDailyRecordsController;
-use App\Http\Controllers\HogHealthPredictionsController;
+
 use App\Http\Controllers\HogPensController;
 use App\Http\Controllers\HogsController;
 use App\Http\Controllers\IotDevicesController;
@@ -74,7 +74,7 @@ Route::prefix('/v1')->group(function () {
         Route::apiResource('iot-devices', IotDevicesController::class);
         Route::apiResource('device-logs', DeviceLogsController::class);
         Route::apiResource('hog-daily-records', HogDailyRecordsController::class);
-        Route::apiResource('hog-health-predictions', HogHealthPredictionsController::class);
+
         Route::apiResource('ml-models', MlModelsController::class);
         Route::apiResource('feeding-predictions', FeedingPredictionsController::class);
 

@@ -1,10 +1,12 @@
-# Fix Login 500 Error
+# TODO
 
-## Steps:
-1. [x] Edit app/Http/Controllers/AuthController.php - Remove undefined `$sinricToken` from login response.
-2. [x] Run `php artisan migrate` to ensure all migrations including `personal_access_tokens` are applied. (All Ran)
-3. [x] Create test user: `darkglitch5417@gmail.com` / `Python!=5417` if not exists. (Exists ID=1)
-4. [x] Clear config cache: `php artisan config:clear`.
-5. [x] Test login endpoint.
+## Hog health predictions removal
+- [ ] Delete migration `2026_05_07_040154_expand_hog_health_predictions_table.php`
+- [ ] Remove model `app/Models/HogHealthPredictions.php`
+- [ ] Update `app/Services/PredictionService.php` to stop writing to `hog_health_predictions`
+- [ ] Update `app/Services/FastAPIIntegration.php` to stop creating `HogHealthPredictions`
+- [ ] Update `routes/api.php` to remove `hog-health-predictions` apiResource route
+- [x] Search repo for remaining references to `hog_health_predictions`
+- [x] Run `php artisan migrate:fresh --seed` to validate migrations and seeding
 
-Login fixed! Test with your POST request to http://127.0.0.1:8000/api/auth/login.
+

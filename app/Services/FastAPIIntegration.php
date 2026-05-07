@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\Models\FeedingPredictions;
-use App\Models\HogHealthPredictions;
+
 use App\Models\Hogpens;
 use App\Models\MLModels;
 use Exception;
@@ -121,31 +121,16 @@ class FastAPIIntegration
 
             $data = $response->json();
 
-            // Store in health predictions table
-            $prediction = HogHealthPredictions::create([
-                'hog_id' => $pen->hogs->first()->id ?? null,
-                'ml_model_id' => $this->getOrCreateModel($data['model_used'] ?? 'weight_trend'),
-                'predicted_status' => 'weight_trending',
-                'risk_score' => 100 - ($data['confidence'] * 100),
-                'model_used' => $data['model_used'] ?? null,
-                'confidence_level' => $data['confidence_level'] ?? 'unknown',
-                'confidence_reason' => $data['confidence_reason'] ?? null,
-                'weight_trend' => $data['weight_trend'] ?? null,
-                'warnings' => $data['warnings'] ?? [],
-                'metrics' => $data['metrics'] ?? null,
-                'fastapi_response' => $data,
-                'predicted_at' => now(),
-            ]);
+            Log::info("Weight trend prediction computed for pen {$penId}", [
 
-            Log::info("Weight trend prediction stored for pen {$penId}", [
                 'confidence' => $data['confidence'] ?? 'unknown',
             ]);
 
             return [
                 'success' => true,
-                'prediction_id' => $prediction->id,
                 'data' => $data,
             ];
+
         } catch (Exception $e) {
             Log::error("Weight trend prediction failed: {$e->getMessage()}");
 
@@ -180,34 +165,11 @@ class FastAPIIntegration
 
             $data = $response->json();
 
-            // Store pen status in health predictions
-            $penStatus = $data['pen_status'] ?? [];
-
-            $prediction = HogHealthPredictions::create([
-                'hog_id' => $pen->hogs->first()->id ?? null,
-                'ml_model_id' => $this->getOrCreateModel($data['model_used'] ?? 'pen_status'),
-                'predicted_status' => $penStatus['status'] ?? 'unknown',
-                'risk_score' => 100 - ($penStatus['confidence_score'] * 100),
-                'model_used' => $data['model_used'] ?? null,
-                'confidence_level' => $data['confidence_level'] ?? 'unknown',
-                'confidence_reason' => $data['confidence_reason'] ?? null,
-                'pen_status' => $penStatus,
-                'warnings' => $data['warnings'] ?? [],
-                'metrics' => $data['metrics'] ?? null,
-                'fastapi_response' => $data,
-                'predicted_at' => now(),
-            ]);
-
-            Log::info('Pen status prediction stored', [
-                'status' => $penStatus['status'] ?? 'unknown',
-                'confidence' => $penStatus['confidence_score'] ?? 0,
-            ]);
-
             return [
                 'success' => true,
-                'prediction_id' => $prediction->id,
                 'data' => $data,
             ];
+
         } catch (Exception $e) {
             Log::error("Pen status prediction failed: {$e->getMessage()}");
 

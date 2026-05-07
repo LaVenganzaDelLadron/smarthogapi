@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\HogHealthPredictions;
+
 use App\Models\Hogs;
 use Exception;
 use Illuminate\Support\Facades\Cache;
@@ -45,15 +45,8 @@ class PredictionService
             // Cache successful result
             $this->cachePrediction($hogId, $prediction);
 
-            // Store in database
-            HogHealthPredictions::create([
-                'hog_id' => $hogId,
-                'ml_model_id' => $prediction['model_id'] ?? null,
-                'predicted_status' => $prediction['predicted_status'],
-                'risk_score' => $prediction['risk_score'],
-            ]);
-
             // Update hog's real-time health status
+
             $hog->update(['health_status' => $this->mapPredictionToStatus($prediction['predicted_status'])]);
 
             Log::info("Prediction successful for hog {$hogId}", [
