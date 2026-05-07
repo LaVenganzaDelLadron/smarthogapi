@@ -74,13 +74,15 @@ class DatabaseSeeder extends Seeder
             'status' => 'active',
         ]);
 
-        // Feeding Schedule
+        // Feeding Schedule with multiple daily feeding times
         FeedingSchedule::create([
             'hog_pen_id' => $hogpen->id,
             'mode' => 'auto',
             'time' => now()->setTime(8, 0, 0),
             'feed_amount' => 25.5,
             'feed_type' => 'grower',
+            'feeding_times' => ['06:00', '12:00', '18:00'], // 3 times daily
+            'daily_feeding_count' => 3,
         ]);
 
         // Sensor Reading

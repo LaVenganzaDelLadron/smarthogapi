@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\FeedingPredictions;
-
 use App\Models\Hogpens;
 use App\Models\MLModels;
 use Exception;
@@ -304,25 +303,55 @@ class FastAPIIntegration
     }
 
     /**
-     * Extract feeding times from feeding schedule
-     * FastAPI expects exactly 3 feeding times
+     * Extract feeding times from feeding schedule.
+     *
+     * FastAPI accepts variable-length `feeding_times`.
      */
     private function extractFeedingTimes(Hogpens $pen): array
     {
         $times = [];
 
-        if ($pen->feedingSchedule) {
-            foreach ($pen->feedingSchedule as $schedule) {
-                $times[] = $schedule->feeding_time ?? '08:00';
+        // Check if pen has any feeding schedules
+        $feedingSchedules = $pen->feedingSchedule ?? [];
+        if (empty($feedingSchedules)) {
+            return $times;
+        }
+
+        // Get the first schedule (typically one per pen with new structure)
+        $schedule = is_array($feedingSchedules)
+            ? reset($feedingSchedules)
+            : $feedingSchedules->first();
+
+        if (! $schedule) {
+            return $times;
+        }
+
+        // Priority 1: Use new JSON feeding_times array if available
+        if ($schedule->feeding_times && is_array($schedule->feeding_times)) {
+            $times = $schedule->feeding_times;
+        } else {
+            // Priority 2: Fallback to old structure with multiple time entries
+            foreach ((is_array($feedingSchedules) ? $feedingSchedules : $feedingSchedules->all()) as $sched) {
+                $t = $sched->time;
+                if (! $t) {
+                    continue;
+                }
+
+                // If it's a Carbon instance (typical), format directly.
+                if (is_object($t) && method_exists($t, 'format')) {
+                    $times[] = $t->format('H:i');
+                } else {
+                    // Fallback for string values
+                    $times[] = date('H:i', strtotime((string) $t));
+                }
             }
         }
 
-        // Pad with defaults if needed
-        while (count($times) < 3) {
-            $times[] = '08:00';
-        }
+        // Sort + unique
+        $times = array_values(array_unique($times));
+        sort($times);
 
-        return array_slice($times, 0, 3);
+        return $times;
     }
 
     /**
