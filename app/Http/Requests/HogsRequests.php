@@ -3,9 +3,29 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class HogsRequests extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        if ($this->filled('health_status') && is_string($this->health_status)) {
+            $mapping = [
+                'healthy' => 100,
+                'fair' => 60,
+                'sick' => 30,
+                'critical' => 10,
+                'unknown' => 50,
+            ];
+
+            $value = strtolower(trim($this->health_status));
+
+            if (array_key_exists($value, $mapping)) {
+                $this->merge(['health_status' => $mapping[$value]]);
+            }
+        }
+    }
+
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -34,7 +54,13 @@ class HogsRequests extends FormRequest
         if ($this->isMethod('put') || $this->isMethod('patch')) {
             $rules = [
                 'hog_pen_id' => ['sometimes', 'required', 'exists:hog_pens,id'],
-                'ear_tag_id' => ['sometimes', 'required', 'string', 'max:50', 'unique:hogs,ear_tag_id', ignore($this->route('hog'))],
+                'ear_tag_id' => [
+                    'sometimes',
+                    'required',
+                    'string',
+                    'max:50',
+                    Rule::unique('hogs', 'ear_tag_id')->ignore($this->route('hog')),
+                ],
                 'breed' => ['sometimes', 'required', 'string', 'max:100'],
                 'gender' => ['sometimes', 'required', 'in:male,female,other'],
                 'current_age' => ['sometimes', 'required', 'integer', 'min:0', 'max:500'],

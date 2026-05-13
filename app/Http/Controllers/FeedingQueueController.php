@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\FeedingQueueIndexRequest;
+use App\Http\Requests\FeedingQueueNextJobRequest;
+use App\Http\Requests\FeedingQueueUpdateRequest;
 use App\Jobs\PublishFeedingUpdate;
 use App\Models\Feeders;
 use App\Models\FeedingQueue;
 use App\Services\FeedingQueueService;
 use App\Services\MetricsService;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redis;
 
@@ -22,14 +24,10 @@ class FeedingQueueController extends Controller
      * Get next pending jobs for ESP32 with rate limiting.
      * POST /api/feeding-queue/next-job
      */
-    public function nextJob(Request $request)
+    public function nextJob(FeedingQueueNextJobRequest $request)
     {
         try {
-            $validated = $request->validate([
-                'feeder_id' => 'required|integer|exists:feeders,id',
-                'max_jobs' => 'integer|min:1|max:10',
-            ]);
-
+            $validated = $request->validated();
             $feederId = $validated['feeder_id'];
 
             // Rate limiting: 100 requests per minute per ESP32
@@ -109,16 +107,10 @@ class FeedingQueueController extends Controller
      * Update job status after ESP32 execution with Pub/Sub notification.
      * PATCH /api/feeding-queue/{id}
      */
-    public function update(Request $request, FeedingQueue $feedingQueue)
+    public function update(FeedingQueueUpdateRequest $request, FeedingQueue $feedingQueue)
     {
         try {
-            $validated = $request->validate([
-                'status' => 'required|in:processing,completed,skipped,error',
-                'duration_seconds' => 'integer|min:0',
-                'actual_feed_time' => 'date_format:Y-m-d H:i:s',
-                'amount_dispensed' => 'numeric|min:0',
-                'error_message' => 'string|max:255',
-            ]);
+            $validated = $request->validated();
 
             // Update job status
             $job = $this->service->updateJobStatus(
@@ -167,21 +159,22 @@ class FeedingQueueController extends Controller
      * List all jobs for debugging/monitoring.
      * GET /api/feeding-queue
      */
-    public function index(Request $request)
+    public function index(FeedingQueueIndexRequest $request)
     {
         try {
+            $validated = $request->validated();
             $query = FeedingQueue::query();
 
-            if ($request->has('status')) {
-                $query->where('status', $request->status);
+            if (isset($validated['status'])) {
+                $query->where('status', $validated['status']);
             }
 
-            if ($request->has('feeder_id')) {
-                $query->where('feeder_id', $request->feeder_id);
+            if (isset($validated['feeder_id'])) {
+                $query->where('feeder_id', $validated['feeder_id']);
             }
 
-            if ($request->has('date')) {
-                $query->whereDate('created_at', $request->date);
+            if (isset($validated['date'])) {
+                $query->whereDate('created_at', $validated['date']);
             }
 
             return response()->json([

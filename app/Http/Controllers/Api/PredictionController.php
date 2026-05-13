@@ -3,9 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\BatchPredictionRequest;
+use App\Http\Requests\PredictionRequest;
 use App\Services\FastAPIIntegration;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 class PredictionController extends Controller
 {
@@ -38,18 +39,13 @@ class PredictionController extends Controller
      *   "avg_weight_kg": 25.5,       // optional override
      * }
      */
-    public function feedRecommendation(Request $request): JsonResponse
+    public function feedRecommendation(PredictionRequest $request): JsonResponse
     {
-        $request->validate([
-            'pen_id' => 'required|exists:hog_pens,id',
-            'async' => 'boolean',
-            'use_cache' => 'boolean',
-        ]);
-
+        $validated = $request->validated();
         $overrides = $request->except(['pen_id', 'async', 'use_cache']);
 
         $result = $this->fastapi->predictFeedRecommendation(
-            $request->integer('pen_id'),
+            $validated['pen_id'],
             $overrides,
             $request->boolean('async', false),
             $request->boolean('use_cache', true)
@@ -83,18 +79,13 @@ class PredictionController extends Controller
      *   "use_cache": true
      * }
      */
-    public function weightTrend(Request $request): JsonResponse
+    public function weightTrend(PredictionRequest $request): JsonResponse
     {
-        $request->validate([
-            'pen_id' => 'required|exists:hog_pens,id',
-            'async' => 'boolean',
-            'use_cache' => 'boolean',
-        ]);
-
+        $validated = $request->validated();
         $overrides = $request->except(['pen_id', 'async', 'use_cache']);
 
         $result = $this->fastapi->predictWeightTrend(
-            $request->integer('pen_id'),
+            $validated['pen_id'],
             $overrides,
             $request->boolean('async', false),
             $request->boolean('use_cache', true)
@@ -127,18 +118,13 @@ class PredictionController extends Controller
      *   "use_cache": true
      * }
      */
-    public function penStatus(Request $request): JsonResponse
+    public function penStatus(PredictionRequest $request): JsonResponse
     {
-        $request->validate([
-            'pen_id' => 'required|exists:hog_pens,id',
-            'async' => 'boolean',
-            'use_cache' => 'boolean',
-        ]);
-
+        $validated = $request->validated();
         $overrides = $request->except(['pen_id', 'async', 'use_cache']);
 
         $result = $this->fastapi->predictPenStatus(
-            $request->integer('pen_id'),
+            $validated['pen_id'],
             $overrides,
             $request->boolean('async', false),
             $request->boolean('use_cache', true)
@@ -170,16 +156,12 @@ class PredictionController extends Controller
      *   "async": false
      * }
      */
-    public function batchFeedRecommendation(Request $request): JsonResponse
+    public function batchFeedRecommendation(BatchPredictionRequest $request): JsonResponse
     {
-        $request->validate([
-            'pen_ids' => 'required|array|min:1',
-            'pen_ids.*' => 'exists:hog_pens,id',
-            'async' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         $result = $this->fastapi->batchPredictFeedRecommendation(
-            $request->array('pen_ids'),
+            $validated['pen_ids'],
             $request->boolean('async', false)
         );
 
@@ -210,16 +192,12 @@ class PredictionController extends Controller
      *   "async": false
      * }
      */
-    public function batchWeightTrend(Request $request): JsonResponse
+    public function batchWeightTrend(BatchPredictionRequest $request): JsonResponse
     {
-        $request->validate([
-            'pen_ids' => 'required|array|min:1',
-            'pen_ids.*' => 'exists:hog_pens,id',
-            'async' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         $result = $this->fastapi->batchPredictWeightTrend(
-            $request->array('pen_ids'),
+            $validated['pen_ids'],
             $request->boolean('async', false)
         );
 
@@ -250,16 +228,12 @@ class PredictionController extends Controller
      *   "async": false
      * }
      */
-    public function batchPenStatus(Request $request): JsonResponse
+    public function batchPenStatus(BatchPredictionRequest $request): JsonResponse
     {
-        $request->validate([
-            'pen_ids' => 'required|array|min:1',
-            'pen_ids.*' => 'exists:hog_pens,id',
-            'async' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         $result = $this->fastapi->batchPredictPenStatus(
-            $request->array('pen_ids'),
+            $validated['pen_ids'],
             $request->boolean('async', false)
         );
 
