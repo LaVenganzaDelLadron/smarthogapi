@@ -13,7 +13,6 @@ use App\Http\Controllers\FeedingPredictionsController;
 use App\Http\Controllers\FeedingQueueController;
 use App\Http\Controllers\FeedingScheduleController;
 use App\Http\Controllers\HogDailyRecordsController;
-
 use App\Http\Controllers\HogPensController;
 use App\Http\Controllers\HogsController;
 use App\Http\Controllers\IotDevicesController;
@@ -59,6 +58,8 @@ Route::prefix('/v1')->group(function () {
             Route::post('/weight-trend', [PredictionController::class, 'weightTrend']);
             Route::post('/pen-status', [PredictionController::class, 'penStatus']);
             Route::post('/batch/feed-recommendation', [PredictionController::class, 'batchFeedRecommendation']);
+            Route::post('/batch/weight-trend', [PredictionController::class, 'batchWeightTrend']);
+            Route::post('/batch/pen-status', [PredictionController::class, 'batchPenStatus']);
         });
 
         Route::apiResource('farms', FarmsController::class);

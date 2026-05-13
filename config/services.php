@@ -42,6 +42,7 @@ return [
     'fastapi' => [
         'url' => env('FASTAPI_URL', 'http://localhost:5000'),
         'timeout' => env('FASTAPI_TIMEOUT', 30),
+        'webhooks' => explode(',', env('FASTAPI_WEBHOOKS', '')),
     ],
 
 ];
