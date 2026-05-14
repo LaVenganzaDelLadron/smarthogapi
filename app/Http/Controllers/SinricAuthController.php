@@ -5,28 +5,25 @@ namespace App\Http\Controllers;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Validation\ValidationException;
 
 class SinricAuthController extends Controller
 {
     private const ACCESS_TOKEN_EXPIRE_SECONDS = 604800;
+
     private const REFRESH_TOKEN_EXPIRE_SECONDS = 1209600;
 
     public function authenticate(Request $request): JsonResponse
     {
-        // Debug logging
-        \Log::info('Sinric Auth Request', [
-            'headers' => $request->headers->all(),
-            'body' => $request->all(),
-            'method' => $request->method(),
-            'content_type' => $request->header('Content-Type'),
-        ]);
 
         try {
             $validated = $request->validate([
                 'client_id' => ['sometimes', 'string', 'max:255'],
                 'clientId' => ['sometimes', 'string', 'max:255'],
+                'email' => ['sometimes', 'email'],
+                'password' => ['sometimes', 'string'],
             ]);
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -42,21 +39,34 @@ class SinricAuthController extends Controller
 
         $clientId = $validated['client_id'] ?? $validated['clientId'] ?? 'android-app';
 
+        // Check for API key first
         if ($request->header('x-sinric-api-key')) {
             return $this->loginWithApiKey($request->header('x-sinric-api-key'), $clientId);
         }
 
-        if ($request->header('Authorization')) {
+        // Fallback to server-side Sinric API key from env
+        if (config('services.sinric.api_key')) {
+            return $this->loginWithApiKey(config('services.sinric.api_key'), $clientId);
+        }
+
+        // Check for Basic auth header
+        if ($request->header('Authorization') && str_starts_with($request->header('Authorization'), 'Basic ')) {
             return $this->loginWithCredentials($request, $clientId);
+        }
+
+        // Check for JSON credentials (email/password in body)
+        if (isset($validated['email']) && isset($validated['password'])) {
+            return $this->loginWithJsonCredentials($validated['email'], $validated['password'], $clientId);
         }
 
         return response()->json([
             'success' => false,
-            'message' => 'Missing x-sinric-api-key or Authorization header.',
+            'message' => 'Missing authentication credentials. Provide either x-sinric-api-key header, Basic Authorization header, or email/password in request body.',
             'received_headers' => [
                 'authorization' => $request->header('Authorization'),
                 'x-sinric-api-key' => $request->header('x-sinric-api-key'),
             ],
+            'received_body' => $request->all(),
         ], 401);
     }
 
@@ -124,21 +134,18 @@ class SinricAuthController extends Controller
         );
     }
 
-    protected function loginWithCredentials(Request $request, string $clientId): JsonResponse
+    protected function loginWithJsonCredentials(string $email, string $password, string $clientId): JsonResponse
     {
-        $authorization = $request->header('Authorization');
-
-        if (! str_starts_with($authorization, 'Basic ')) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid Authorization header.',
-            ], 401);
-        }
+        // Create Basic auth header from email/password
+        $basicAuth = 'Basic '.base64_encode($email.':'.$password);
 
         return $this->proxySinricRequest(
             'POST',
             '/api/v1/auth',
-            ['Authorization' => $authorization],
+            [
+                'Authorization' => $basicAuth,
+                'Content-Type' => 'application/x-www-form-urlencoded', // Sinric expects form data
+            ],
             ['client_id' => $clientId],
         );
     }
@@ -153,9 +160,9 @@ class SinricAuthController extends Controller
 
         try {
             if ($method === 'POST') {
-                // Check if we should send JSON or form data
+                // Check if we should send JSON or form data based on Content-Type header
                 $contentType = $headers['Content-Type'] ?? '';
-                if (str_contains($contentType, 'application/json')) {
+                if (str_contains(strtolower($contentType), 'application/json')) {
                     $response = $request->post($url, $payload);
                 } else {
                     $response = $request->asForm()->post($url, $payload);
@@ -180,7 +187,7 @@ class SinricAuthController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to connect to Sinric API: ' . $e->getMessage(),
+                'message' => 'Failed to connect to Sinric API: '.$e->getMessage(),
             ], 500);
         }
     }

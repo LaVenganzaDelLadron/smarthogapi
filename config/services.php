@@ -47,6 +47,7 @@ return [
 
     'sinric' => [
         'url' => env('SINRIC_API_URL', 'https://api.sinric.pro'),
+        'api_key' => env('SINRIC_API_KEY'),
     ],
 
 ];
