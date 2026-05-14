@@ -13,12 +13,34 @@ class SinricAuthController extends Controller
 
     public function authenticate(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'client_id' => ['required_without:clientId', 'string', 'max:255'],
-            'clientId' => ['required_without:client_id', 'string', 'max:255'],
+        // Debug logging
+        \Log::info('Sinric Auth Request', [
+            'headers' => $request->headers->all(),
+            'body' => $request->all(),
+            'method' => $request->method(),
+            'content_type' => $request->header('Content-Type'),
         ]);
 
-        $clientId = $validated['client_id'] ?? $validated['clientId'];
+        try {
+            $validated = $request->validate([
+                'client_id' => ['sometimes', 'string', 'max:255'],
+                'clientId' => ['sometimes', 'string', 'max:255'],
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+                'received_data' => $request->all(),
+                'received_headers' => [
+                    'authorization' => $request->header('Authorization'),
+                    'x-sinric-api-key' => $request->header('x-sinric-api-key'),
+                    'content-type' => $request->header('Content-Type'),
+                ],
+            ], 422);
+        }
+
+        $clientId = $validated['client_id'] ?? $validated['clientId'] ?? 'android-app';
 
         if ($request->header('x-sinric-api-key')) {
             return $this->loginWithApiKey($request->header('x-sinric-api-key'), $clientId);
@@ -31,6 +53,10 @@ class SinricAuthController extends Controller
         return response()->json([
             'success' => false,
             'message' => 'Missing x-sinric-api-key or Authorization header.',
+            'received_headers' => [
+                'authorization' => $request->header('Authorization'),
+                'x-sinric-api-key' => $request->header('x-sinric-api-key'),
+            ],
         ], 401);
     }
 
@@ -125,21 +151,37 @@ class SinricAuthController extends Controller
             'Accept' => 'application/json',
         ], array_filter($headers, fn ($value) => $value !== null && $value !== '')));
 
-        $response = match ($method) {
-            'GET' => $request->asForm()->get($url, $payload),
-            'POST' => $request->asForm()->post($url, $payload),
-            default => $request->asForm()->post($url, $payload),
-        };
+        try {
+            if ($method === 'POST') {
+                // Check if we should send JSON or form data
+                $contentType = $headers['Content-Type'] ?? '';
+                if (str_contains($contentType, 'application/json')) {
+                    $response = $request->post($url, $payload);
+                } else {
+                    $response = $request->asForm()->post($url, $payload);
+                }
+            } elseif ($method === 'GET') {
+                $response = $request->asForm()->get($url, $payload);
+            } else {
+                $response = $request->asForm()->post($url, $payload);
+            }
 
-        $body = $response->json();
+            $body = $response->json();
 
-        if ($body === null) {
+            if ($body === null) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unexpected response from Sinric.',
+                    'response_body' => $response->body(),
+                ], $response->status());
+            }
+
+            return response()->json($body, $response->status());
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Unexpected response from Sinric.',
-            ], $response->status());
+                'message' => 'Failed to connect to Sinric API: ' . $e->getMessage(),
+            ], 500);
         }
-
-        return response()->json($body, $response->status());
     }
 }
