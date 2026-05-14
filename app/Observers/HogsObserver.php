@@ -9,7 +9,10 @@ class HogsObserver
 {
     public function created(Hogs $hog): void
     {
-        $webhookUrls = array_filter(explode(',', config('services.fastapi.webhooks', '')));
+        $webhooksConfig = config('services.fastapi.webhooks', '');
+        $webhookUrls = is_array($webhooksConfig)
+            ? array_filter($webhooksConfig)
+            : array_filter(explode(',', (string) $webhooksConfig));
 
         // Auto-generate feed recommendation prediction
         AsyncPredictionJob::dispatch(
