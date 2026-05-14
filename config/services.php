@@ -45,9 +45,4 @@ return [
         'webhooks' => explode(',', env('FASTAPI_WEBHOOKS', '')),
     ],
 
-    'sinric' => [
-        'url' => env('SINRIC_API_URL', 'https://api.sinric.pro'),
-        'api_key' => env('SINRIC_API_KEY'),
-    ],
-
 ];

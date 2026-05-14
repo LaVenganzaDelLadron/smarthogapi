@@ -23,7 +23,6 @@ use App\Http\Controllers\IotDevicesController;
 use App\Http\Controllers\MlModelsController;
 use App\Http\Controllers\SensorReadingsController;
 use App\Http\Controllers\SensorsController;
-use App\Http\Controllers\SinricAuthController;
 use App\Services\PredictionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -40,12 +39,6 @@ Route::prefix('/v1')->group(function () {
 
     // FastAPI health check (no auth required)
     Route::get('/predictions/health', [PredictionController::class, 'health']);
-
-    // Authentication routes for Sinric Pro devices and apps
-    Route::post('/auth', [SinricAuthController::class, 'authenticate']);
-    Route::match(['get', 'post'], '/logout', [SinricAuthController::class, 'logout']);
-    Route::match(['get', 'post'], '/refresh_token', [SinricAuthController::class, 'refreshToken']);
-    Route::match(['get', 'post'], '/reject_token', [SinricAuthController::class, 'rejectToken']);
 
     // Device command routes (protected by device auth middleware)
     Route::middleware('device.auth:commands:poll')->group(function () {
