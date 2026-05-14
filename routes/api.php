@@ -41,19 +41,23 @@ Route::prefix('/v1')->group(function () {
     // FastAPI health check (no auth required)
     Route::get('/predictions/health', [PredictionController::class, 'health']);
 
+    // Authentication routes for Sinric Pro devices and apps
     Route::post('/auth', [SinricAuthController::class, 'authenticate']);
     Route::match(['get', 'post'], '/logout', [SinricAuthController::class, 'logout'])->middleware('auth:sanctum');
     Route::match(['get', 'post'], '/refresh_token', [SinricAuthController::class, 'refreshToken']);
     Route::match(['get', 'post'], '/reject_token', [SinricAuthController::class, 'rejectToken']);
 
+    // Device command routes (protected by device auth middleware)
     Route::middleware('device.auth:commands:poll')->group(function () {
         Route::get('/iot-devices/{iotDevice}/next-command', [DeviceCommandController::class, 'next']);
     });
 
+    // Command completion route (protected by device auth middleware)
     Route::middleware('device.auth:commands:complete')->group(function () {
         Route::post('/device-commands/{deviceCommand}/complete', [DeviceCommandController::class, 'complete']);
     });
 
+    // All other routes require user authentication
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/users/myself', function (Request $request) {
             return response()->json([
@@ -62,14 +66,17 @@ Route::prefix('/v1')->group(function () {
             ]);
         });
 
+        // Activity Logs
         Route::get('/activitylogs', [ActivityLogsController::class, 'index']);
         Route::get('/activitylogs/device/{iotDevice}', [ActivityLogsController::class, 'forDevice']);
 
+        // Device actions and credentials
         Route::post('/iot-devices/{iotDevice}/action', [DeviceActionsController::class, 'store']);
         Route::get('/device-credentials', [DeviceCredentialsController::class, 'index']);
         Route::post('/device-credentials', [DeviceCredentialsController::class, 'store']);
         Route::delete('/device-credentials/{deviceCredential}', [DeviceCredentialsController::class, 'destroy']);
 
+        // Analytics routes
         Route::prefix('analytics')->controller(AnalyticsController::class)->group(function () {
             Route::get('/dashboard', 'dashboard');
             Route::get('/feed-report', 'feedReport');
@@ -79,6 +86,7 @@ Route::prefix('/v1')->group(function () {
             Route::get('/pen-ranking', 'penRanking');
         });
 
+        // Prediction routes
         Route::prefix('predictions')->group(function () {
             Route::post('/hog-health/{hogId}', function (int $hogId, PredictionService $service) {
                 $result = $service->predictHogHealth($hogId);
@@ -95,6 +103,7 @@ Route::prefix('/v1')->group(function () {
             Route::post('/batch/pen-status', [PredictionController::class, 'batchPenStatus']);
         });
 
+        // Resource routes
         Route::apiResource('farms', FarmsController::class);
         Route::apiResource('hogpens', HogPensController::class);
         Route::apiResource('hogs', HogsController::class);
@@ -120,6 +129,7 @@ Route::prefix('/v1')->group(function () {
             Route::patch('/{feedingQueue}', 'update'); // Update job status after execution
         });
 
+        // Feeder-specific routes
         Route::prefix('feeders')->controller(FeedingQueueController::class)->group(function () {
             Route::get('/{feeder}/relay-config', 'getRelayConfig'); // Get relay config for ESP32
         });
