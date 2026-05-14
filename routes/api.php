@@ -1,10 +1,14 @@
 <?php
 
+use App\Http\Controllers\ActivityLogsController;
 use App\Http\Controllers\AlertsController;
 use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\Api\PredictionController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DailyFarmReportsController;
+use App\Http\Controllers\DeviceActionsController;
+use App\Http\Controllers\DeviceCommandController;
+use App\Http\Controllers\DeviceCredentialsController;
 use App\Http\Controllers\DeviceLogsController;
 use App\Http\Controllers\FarmsController;
 use App\Http\Controllers\FeedersController;
@@ -36,7 +40,30 @@ Route::prefix('/v1')->group(function () {
     // FastAPI health check (no auth required)
     Route::get('/predictions/health', [PredictionController::class, 'health']);
 
+    Route::middleware('device.auth:commands:poll')->group(function () {
+        Route::get('/iot-devices/{iotDevice}/next-command', [DeviceCommandController::class, 'next']);
+    });
+
+    Route::middleware('device.auth:commands:complete')->group(function () {
+        Route::post('/device-commands/{deviceCommand}/complete', [DeviceCommandController::class, 'complete']);
+    });
+
     Route::middleware('auth:sanctum')->group(function () {
+        Route::get('/users/myself', function (Request $request) {
+            return response()->json([
+                'success' => true,
+                'data' => $request->user(),
+            ]);
+        });
+
+        Route::get('/activitylogs', [ActivityLogsController::class, 'index']);
+        Route::get('/activitylogs/device/{iotDevice}', [ActivityLogsController::class, 'forDevice']);
+
+        Route::post('/iot-devices/{iotDevice}/action', [DeviceActionsController::class, 'store']);
+        Route::get('/device-credentials', [DeviceCredentialsController::class, 'index']);
+        Route::post('/device-credentials', [DeviceCredentialsController::class, 'store']);
+        Route::delete('/device-credentials/{deviceCredential}', [DeviceCredentialsController::class, 'destroy']);
+
         Route::prefix('analytics')->controller(AnalyticsController::class)->group(function () {
             Route::get('/dashboard', 'dashboard');
             Route::get('/feed-report', 'feedReport');
