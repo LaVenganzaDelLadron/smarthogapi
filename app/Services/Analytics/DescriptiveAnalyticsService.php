@@ -47,12 +47,13 @@ class DescriptiveAnalyticsService
             ->whereBetween('created_at', [$todayStart, $todayEnd])
             ->count();
 
-        $sickHogCount = DB::table('hogs')
-            ->join('hog_pens', 'hog_pens.id', '=', 'hogs.hog_pen_id')
+        $sickHogCount = DB::table('hog_daily_records as hdr')
+            ->join('hog_pens', 'hog_pens.id', '=', 'hdr.hog_pen_id')
             ->when($farmId, fn ($query) => $query->where('hog_pens.farm_id', $farmId))
-            ->whereNotNull('hogs.health_status')
-            ->whereRaw($this->healthStatusSql('hogs.health_status').' NOT IN ('.$this->quotedList(self::HEALTHY_STATUSES).')')
-            ->count();
+            ->whereRaw($this->healthStatusSql('hdr.health_status').' NOT IN ('.$this->quotedList(self::HEALTHY_STATUSES).')')
+            ->whereRaw('hdr.recorded_date = (select max(recorded_date) from hog_daily_records where hog_id = hdr.hog_id)')
+            ->distinct()
+            ->count('hdr.hog_id');
 
         return [
             'total_hog_count' => $hogCount,
@@ -359,13 +360,12 @@ class DescriptiveAnalyticsService
             ->groupBy('alerts.hog_pen_id')
             ->pluck('total_alerts', 'alerts.hog_pen_id');
 
-        $healthyRatios = DB::table('hogs')
-            ->join('hog_pens', 'hog_pens.id', '=', 'hogs.hog_pen_id')
+        $healthyRatios = DB::table('hog_daily_records as hdr')
+            ->join('hog_pens', 'hog_pens.id', '=', 'hdr.hog_pen_id')
             ->when($farmId, fn ($query) => $query->where('hog_pens.farm_id', $farmId))
-            ->selectRaw('hogs.hog_pen_id')
-            ->selectRaw('SUM(CASE WHEN '.$this->healthStatusSql('hogs.health_status').' IN ('.$this->quotedList(self::HEALTHY_STATUSES).') THEN 1 ELSE 0 END) as healthy_hogs')
-            ->selectRaw('COUNT(*) as total_hogs')
-            ->groupBy('hogs.hog_pen_id')
+            ->whereRaw('hdr.recorded_date = (select max(recorded_date) from hog_daily_records where hog_id = hdr.hog_id)')
+            ->selectRaw('hdr.hog_pen_id, SUM(CASE WHEN '.$this->healthStatusSql('hdr.health_status').' IN ('.$this->quotedList(self::HEALTHY_STATUSES).') THEN 1 ELSE 0 END) as healthy_hogs, COUNT(*) as total_hogs')
+            ->groupBy('hdr.hog_pen_id')
             ->get()
             ->mapWithKeys(fn ($row) => [
                 $row->hog_pen_id => $row->total_hogs > 0 ? round(($row->healthy_hogs / $row->total_hogs) * 100, 2) : 0,

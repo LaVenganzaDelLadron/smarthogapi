@@ -7,25 +7,6 @@ use Illuminate\Validation\Rule;
 
 class HogsRequests extends FormRequest
 {
-    protected function prepareForValidation(): void
-    {
-        if ($this->filled('health_status') && is_string($this->health_status)) {
-            $mapping = [
-                'healthy' => 100,
-                'fair' => 60,
-                'sick' => 30,
-                'critical' => 10,
-                'unknown' => 50,
-            ];
-
-            $value = strtolower(trim($this->health_status));
-
-            if (array_key_exists($value, $mapping)) {
-                $this->merge(['health_status' => $mapping[$value]]);
-            }
-        }
-    }
-
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -48,7 +29,6 @@ class HogsRequests extends FormRequest
             'gender' => ['required', 'in:male,female,other'],
             'current_age' => ['required', 'integer', 'min:0', 'max:500'],
             'weight_current' => ['required', 'numeric', 'min:0'],
-            'health_status' => ['required', 'numeric', 'min:0', 'max:100'],
         ];
 
         if ($this->isMethod('put') || $this->isMethod('patch')) {
@@ -65,7 +45,6 @@ class HogsRequests extends FormRequest
                 'gender' => ['sometimes', 'required', 'in:male,female,other'],
                 'current_age' => ['sometimes', 'required', 'integer', 'min:0', 'max:500'],
                 'weight_current' => ['sometimes', 'required', 'numeric', 'min:0'],
-                'health_status' => ['sometimes', 'required', 'numeric', 'min:0', 'max:100'],
             ];
         }
 
@@ -81,8 +60,6 @@ class HogsRequests extends FormRequest
             'ear_tag_id.string' => 'The ear tag ID must be a string.',
             'ear_tag_id.max' => 'The ear tag ID may not be greater than 50 characters.',
             'ear_tag_id.unique' => 'The ear tag ID must be unique.',
-            // add all others...
-            'health_status.max' => 'The health status may not be greater than 100.',
         ];
     }
 }

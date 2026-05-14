@@ -54,8 +54,6 @@ class DatabaseSeeder extends Seeder
             'gender' => 'male',
             'current_age' => 120,
             'weight_current' => 50.5,
-            'health_status' => 1,
-
         ]);
 
         // Feeders

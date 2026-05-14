@@ -140,7 +140,6 @@ class DescriptiveAnalyticsTest extends TestCase
             'gender' => 'female',
             'current_age' => 12,
             'weight_current' => 55,
-            'health_status' => 1,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -152,7 +151,6 @@ class DescriptiveAnalyticsTest extends TestCase
             'gender' => 'male',
             'current_age' => 11,
             'weight_current' => 48,
-            'health_status' => 0,
             'created_at' => now(),
             'updated_at' => now(),
         ]);

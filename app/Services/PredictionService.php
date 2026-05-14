@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-
 use App\Models\Hogs;
 use Exception;
 use Illuminate\Support\Facades\Cache;
@@ -44,10 +43,6 @@ class PredictionService
 
             // Cache successful result
             $this->cachePrediction($hogId, $prediction);
-
-            // Update hog's real-time health status
-
-            $hog->update(['health_status' => $this->mapPredictionToStatus($prediction['predicted_status'])]);
 
             Log::info("Prediction successful for hog {$hogId}", [
                 'status' => $prediction['predicted_status'],
@@ -113,9 +108,13 @@ class PredictionService
             'hog_id' => $hog->id,
             'weight' => $hog->weight_current,
             'age' => $hog->current_age,
-            'health_status' => $hog->health_status,
             'pen_id' => $hog->hog_pen_id,
         ];
+
+        $latestHealthStatus = $this->getLatestHogHealthStatus($hog);
+        if (! is_null($latestHealthStatus)) {
+            $payload['health_status'] = $latestHealthStatus;
+        }
 
         $response = Http::timeout(self::TIMEOUT_SECONDS)
             ->post("{$this->baseUrl}/predict/hog-health", $payload);
@@ -141,6 +140,13 @@ class PredictionService
         $cacheKey = "hog_prediction_{$hogId}";
         // Store in Redis cache database (DB 1) with 24-hour TTL
         Cache::store('redis')->put($cacheKey, $prediction, now()->addHours(self::CACHE_TTL_HOURS));
+    }
+
+    private function getLatestHogHealthStatus(Hogs $hog): ?string
+    {
+        return $hog->hogDailyRecords()
+            ->orderByDesc('recorded_date')
+            ->value('health_status');
     }
 
     /**
@@ -499,18 +505,5 @@ class PredictionService
     private function cacheDeviceRisk(int $deviceId, array $data): void
     {
         Cache::store('redis')->put("device_risk_{$deviceId}", $data, now()->addHours(self::CACHE_TTL_HOURS));
-    }
-
-    /**
-     * Map ML prediction status to hog health_status
-     */
-    private function mapPredictionToStatus(string $predictedStatus): string
-    {
-        return match ($predictedStatus) {
-            'healthy' => 'good',
-            'at_risk' => 'caution',
-            'sick' => 'sick',
-            default => 'unknown',
-        };
     }
 }
