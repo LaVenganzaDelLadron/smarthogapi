@@ -2,14 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\DeviceCredential;
-use App\Models\RefreshToken;
-use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Http;
 
 class SinricAuthController extends Controller
 {
@@ -19,10 +14,11 @@ class SinricAuthController extends Controller
     public function authenticate(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'client_id' => ['required', 'string', 'max:255'],
+            'client_id' => ['required_without:clientId', 'string', 'max:255'],
+            'clientId' => ['required_without:client_id', 'string', 'max:255'],
         ]);
 
-        $clientId = $validated['client_id'];
+        $clientId = $validated['client_id'] ?? $validated['clientId'];
 
         if ($request->header('x-sinric-api-key')) {
             return $this->loginWithApiKey($request->header('x-sinric-api-key'), $clientId);
@@ -40,79 +36,66 @@ class SinricAuthController extends Controller
 
     public function logout(Request $request): JsonResponse
     {
-        $token = $request->user()?->currentAccessToken();
-
-        if ($token) {
-            $token->delete();
-        }
-
-        return response()->json(['success' => true]);
+        return $this->proxySinricRequest(
+            $request->method(),
+            '/api/v1/logout',
+            [
+                'Authorization' => $request->header('Authorization', ''),
+                'x-sinric-api-key' => $request->header('x-sinric-api-key', ''),
+            ],
+        );
     }
 
     public function refreshToken(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'refreshToken' => ['required', 'string'],
-            'accountId' => ['required', 'integer', 'exists:users,id'],
+            'accountId' => ['required', 'string'],
         ]);
 
-        $refreshToken = RefreshToken::query()
-            ->where('user_id', $validated['accountId'])
-            ->where('token_hash', hash('sha256', $validated['refreshToken']))
-            ->valid()
-            ->first();
-
-        if (! $refreshToken) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid or expired refresh token.',
-            ], 401);
-        }
-
-        $refreshToken->update(['revoked_at' => now()]);
-
-        return $this->issueTokens($refreshToken->user, $refreshToken->client_id, $refreshToken->deviceCredential);
+        return $this->proxySinricRequest(
+            match ($request->method()) {
+                'POST' => 'POST',
+                default => 'GET',
+            },
+            '/api/v1/refresh_token',
+            [],
+            [
+                'refreshToken' => $validated['refreshToken'],
+                'accountId' => $validated['accountId'],
+            ],
+        );
     }
 
     public function rejectToken(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'refreshToken' => ['required', 'string'],
-            'accountId' => ['required', 'integer', 'exists:users,id'],
+            'accountId' => ['required', 'string'],
         ]);
 
-        $refreshToken = RefreshToken::query()
-            ->where('user_id', $validated['accountId'])
-            ->where('token_hash', hash('sha256', $validated['refreshToken']))
-            ->first();
-
-        if (! $refreshToken) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Refresh token not found.',
-            ], 404);
-        }
-
-        $refreshToken->update(['revoked_at' => now()]);
-
-        return response()->json(['success' => true]);
+        return $this->proxySinricRequest(
+            match ($request->method()) {
+                'POST' => 'POST',
+                default => 'GET',
+            },
+            '/api/v1/reject_token',
+            [],
+            [
+                'refreshToken' => $validated['refreshToken'],
+                'accountId' => $validated['accountId'],
+            ],
+        );
     }
 
     protected function loginWithApiKey(string $apiKey, string $clientId): JsonResponse
     {
-        $credential = DeviceCredential::query()
-            ->where('api_key', $apiKey)
-            ->whereNull('revoked_at')
-            ->first();
-
-        if (! $credential) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid API key.',
-            ], 403);
-        }
-
-        return $this->issueTokens($credential->user, $clientId, $credential);
+        return $this->proxySinricRequest(
+            'POST',
+            '/api/v1/auth',
+            ['x-sinric-api-key' => $apiKey],
+            ['client_id' => $clientId],
+        );
     }
 
     protected function loginWithCredentials(Request $request, string $clientId): JsonResponse
@@ -126,56 +109,37 @@ class SinricAuthController extends Controller
             ], 401);
         }
 
-        $encoded = substr($authorization, 6);
-        $decoded = base64_decode($encoded);
-
-        if ($decoded === false || ! str_contains($decoded, ':')) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid Basic auth payload.',
-            ], 401);
-        }
-
-        [$email, $password] = explode(':', $decoded, 2);
-
-        if (! Auth::attempt(['email' => $email, 'password' => $password])) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid credentials.',
-            ], 401);
-        }
-
-        return $this->issueTokens(Auth::user(), $clientId);
+        return $this->proxySinricRequest(
+            'POST',
+            '/api/v1/auth',
+            ['Authorization' => $authorization],
+            ['client_id' => $clientId],
+        );
     }
 
-    protected function issueTokens(User $user, string $clientId, ?DeviceCredential $credential = null): JsonResponse
+    protected function proxySinricRequest(string $method, string $uri, array $headers = [], array $payload = []): JsonResponse
     {
-        $tokenName = 'sinric:'.$clientId.'@'.$user->id;
-        $newAccessToken = $user->createToken($tokenName);
-        $accessToken = $newAccessToken->plainTextToken;
+        $url = rtrim(config('services.sinric.url'), '/').$uri;
 
-        $personalAccessToken = $newAccessToken->accessToken;
-        $personalAccessToken->expires_at = now()->addSeconds(self::ACCESS_TOKEN_EXPIRE_SECONDS);
-        $personalAccessToken->save();
+        $request = Http::withHeaders(array_merge([
+            'Accept' => 'application/json',
+        ], array_filter($headers, fn ($value) => $value !== null && $value !== '')));
 
-        $refreshToken = Str::random(80);
+        $response = match ($method) {
+            'GET' => $request->asForm()->get($url, $payload),
+            'POST' => $request->asForm()->post($url, $payload),
+            default => $request->asForm()->post($url, $payload),
+        };
 
-        RefreshToken::create([
-            'user_id' => $user->id,
-            'device_credential_id' => $credential?->id,
-            'token_hash' => hash('sha256', $refreshToken),
-            'client_id' => $clientId,
-            'expires_at' => now()->addSeconds(self::REFRESH_TOKEN_EXPIRE_SECONDS),
-        ]);
+        $body = $response->json();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'OK.',
-            'accessToken' => $accessToken,
-            'refreshToken' => $refreshToken,
-            'expiresIn' => self::ACCESS_TOKEN_EXPIRE_SECONDS,
-            'subscriptionExpired' => false,
-            'account' => $user->makeHidden(['password', 'remember_token'])->toArray(),
-        ]);
+        if ($body === null) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unexpected response from Sinric.',
+            ], $response->status());
+        }
+
+        return response()->json($body, $response->status());
     }
 }

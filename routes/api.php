@@ -43,7 +43,7 @@ Route::prefix('/v1')->group(function () {
 
     // Authentication routes for Sinric Pro devices and apps
     Route::post('/auth', [SinricAuthController::class, 'authenticate']);
-    Route::match(['get', 'post'], '/logout', [SinricAuthController::class, 'logout'])->middleware('auth:sanctum');
+    Route::match(['get', 'post'], '/logout', [SinricAuthController::class, 'logout']);
     Route::match(['get', 'post'], '/refresh_token', [SinricAuthController::class, 'refreshToken']);
     Route::match(['get', 'post'], '/reject_token', [SinricAuthController::class, 'rejectToken']);
 
