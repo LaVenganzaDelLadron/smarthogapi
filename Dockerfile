@@ -3,7 +3,7 @@
 FROM composer:2 AS vendor
 
 WORKDIR /app
-COPY composer.json composer.lock ./
+COPY . /app
 RUN composer install --prefer-dist --no-dev --optimize-autoloader --no-progress --ignore-platform-reqs
 
 FROM php:8.4-fpm-alpine
