@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\HogPensRequests;
+use App\Models\Farms;
 use App\Models\Hogpens;
 use Illuminate\Http\JsonResponse;
 
