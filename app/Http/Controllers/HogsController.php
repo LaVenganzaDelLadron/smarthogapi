@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\HogsRequests;
 use App\Models\Hogs;
+use App\Models\Hogpens;
 use Illuminate\Http\JsonResponse;
 
 class HogsController extends Controller
@@ -11,7 +12,9 @@ class HogsController extends Controller
     public function index(): JsonResponse
     {
         try {
-            $hogs = Hogs::with('hogpen', 'hogDailyRecords')->get();
+            $hogs = Hogs::with('hogpen', 'hogDailyRecords')
+                ->ownedByUser(auth()->id())
+                ->get();
 
             return response()->json([
                 'success' => true,
@@ -29,8 +32,14 @@ class HogsController extends Controller
 
     public function store(HogsRequests $request): JsonResponse
     {
+        $validated = $request->validated();
+        abort_unless(Hogpens::query()
+            ->where('id', $validated['hog_pen_id'])
+            ->whereHas('farm', fn ($query) => $query->where('user_id', auth()->id()))
+            ->exists(), 403);
+
         try {
-            $hog = Hogs::create($request->validated());
+            $hog = Hogs::create($validated);
 
             return response()->json([
                 'success' => true,
@@ -48,6 +57,8 @@ class HogsController extends Controller
 
     public function show(Hogs $hogs): JsonResponse
     {
+        abort_unless($hogs->belongsToUser(auth()->id()), 403);
+
         try {
             $hogs->load('hogpen');
 
@@ -67,6 +78,8 @@ class HogsController extends Controller
 
     public function update(HogsRequests $request, Hogs $hogs): JsonResponse
     {
+        abort_unless($hogs->belongsToUser(auth()->id()), 403);
+
         try {
             $hogs->update($request->validated());
 
@@ -86,6 +99,8 @@ class HogsController extends Controller
 
     public function destroy(Hogs $hogs): JsonResponse
     {
+        abort_unless($hogs->belongsToUser(auth()->id()), 403);
+
         try {
             $hogs->delete();
 

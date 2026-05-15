@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Traits\UserOwned;
 use Illuminate\Database\Eloquent\Model;
 
 class FeedingSchedule extends Model
 {
+    use UserOwned;
+
     protected $table = 'feeding_schedule';
 
     protected $fillable = ['hog_pen_id', 'mode', 'time', 'feed_amount', 'feed_type', 'feeding_times', 'daily_feeding_count'];

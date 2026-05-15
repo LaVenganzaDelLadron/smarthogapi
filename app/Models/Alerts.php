@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Traits\UserOwned;
 use Illuminate\Database\Eloquent\Model;
 
 class Alerts extends Model
 {
+    use UserOwned;
+
     protected $table = 'alerts';
 
     protected $fillable = ['farm_id', 'hog_pen_id', 'type', 'message', 'severity', 'status'];

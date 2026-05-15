@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Traits\UserOwned;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class DeviceLogs extends Model
 {
+    use UserOwned;
+
     protected $table = 'device_logs';
 
     protected $fillable = ['device_id', 'action', 'response'];

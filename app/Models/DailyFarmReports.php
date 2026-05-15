@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Traits\UserOwned;
 use Illuminate\Database\Eloquent\Model;
 
 class DailyFarmReports extends Model
 {
+    use UserOwned;
+
     protected $table = 'daily_farm_reports';
 
     protected $fillable = [

@@ -2,17 +2,20 @@
 
 namespace App\Models;
 
+use App\Models\Traits\UserOwned;
 use Illuminate\Database\Eloquent\Model;
 
 class Farms extends Model
 {
+    use UserOwned;
+
     protected $table = 'farms';
 
     protected $fillable = ['user_id', 'location', 'timezone'];
 
     public function user()
     {
-        return $this->belongsTo(User::class, 'owner_user_id');
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     public function hogpens()

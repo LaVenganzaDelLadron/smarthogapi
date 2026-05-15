@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Traits\UserOwned;
 use Illuminate\Database\Eloquent\Model;
 
 class FeedingPredictions extends Model
 {
+    use UserOwned;
+
     protected $table = 'feeding_predictions';
 
     protected $fillable = [

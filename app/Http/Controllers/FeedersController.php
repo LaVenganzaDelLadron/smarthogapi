@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\FeedersRequests;
 use App\Models\Feeders;
+use App\Models\Hogpens;
 use Illuminate\Http\JsonResponse;
 
 class FeedersController extends Controller
@@ -11,7 +12,9 @@ class FeedersController extends Controller
     public function index(): JsonResponse
     {
         try {
-            $feeders = Feeders::with('hogpen', 'feedingLogs')->get();
+            $feeders = Feeders::with('hogpen', 'feedingLogs')
+                ->ownedByUser(auth()->id())
+                ->get();
 
             return response()->json([
                 'success' => true,
@@ -29,8 +32,14 @@ class FeedersController extends Controller
 
     public function store(FeedersRequests $request): JsonResponse
     {
+        $validated = $request->validated();
+        abort_unless(Hogpens::query()
+            ->where('id', $validated['hog_pen_id'])
+            ->whereHas('farm', fn ($query) => $query->where('user_id', auth()->id()))
+            ->exists(), 403);
+
         try {
-            $feeder = Feeders::create($request->validated());
+            $feeder = Feeders::create($validated);
 
             return response()->json([
                 'success' => true,
@@ -48,6 +57,8 @@ class FeedersController extends Controller
 
     public function show(Feeders $feeders): JsonResponse
     {
+        abort_unless($feeders->belongsToUser(auth()->id()), 403);
+
         try {
             $feeders->load('hogpen');
 
@@ -67,6 +78,8 @@ class FeedersController extends Controller
 
     public function update(FeedersRequests $request, Feeders $feeders): JsonResponse
     {
+        abort_unless($feeders->belongsToUser(auth()->id()), 403);
+
         try {
             $feeders->update($request->validated());
 
@@ -86,6 +99,8 @@ class FeedersController extends Controller
 
     public function destroy(Feeders $feeders): JsonResponse
     {
+        abort_unless($feeders->belongsToUser(auth()->id()), 403);
+
         try {
             $feeders->delete();
 

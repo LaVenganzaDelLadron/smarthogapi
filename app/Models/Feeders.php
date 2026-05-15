@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Traits\UserOwned;
 use Illuminate\Database\Eloquent\Model;
 
 class Feeders extends Model
 {
+    use UserOwned;
+
     protected $table = 'feeders';
 
     protected $fillable = ['hog_pen_id', 'device_id', 'status', 'last_refill'];

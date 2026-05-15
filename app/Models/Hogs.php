@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Traits\UserOwned;
 use Illuminate\Database\Eloquent\Model;
 
 class Hogs extends Model
 {
+    use UserOwned;
+
     protected $table = 'hogs';
 
     protected $fillable = ['hog_pen_id', 'ear_tag_id', 'breed', 'gender', 'current_age', 'weight_current'];

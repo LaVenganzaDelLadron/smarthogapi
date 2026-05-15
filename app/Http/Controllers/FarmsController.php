@@ -14,7 +14,9 @@ class FarmsController extends Controller
     public function index(): JsonResponse
     {
         try {
-            $farms = Farms::with('hogpens', 'dailyFarmReports', 'alerts')->get();
+            $farms = Farms::with('hogpens', 'dailyFarmReports', 'alerts')
+                ->ownedByUser(auth()->id())
+                ->get();
 
             return response()->json([
                 'success' => true,
@@ -36,7 +38,10 @@ class FarmsController extends Controller
     public function store(FarmsRequests $request): JsonResponse
     {
         try {
-            $farm = Farms::create($request->validated());
+            $farm = Farms::create(array_merge(
+                $request->validated(),
+                ['user_id' => auth()->id()]
+            ));
             $farm->load('hogpens');
 
             return response()->json([
@@ -58,6 +63,8 @@ class FarmsController extends Controller
      */
     public function show(Farms $farm): JsonResponse
     {
+        abort_unless($farm->belongsToUser(auth()->id()), 403);
+
         try {
             $farm->load('hogpens.hogs', 'dailyFarmReports');
 
@@ -80,6 +87,8 @@ class FarmsController extends Controller
      */
     public function update(FarmsRequests $request, Farms $farm): JsonResponse
     {
+        abort_unless($farm->belongsToUser(auth()->id()), 403);
+
         try {
             $farm->update($request->validated());
             $farm->load('hogpens');
@@ -103,6 +112,8 @@ class FarmsController extends Controller
      */
     public function destroy(Farms $farm): JsonResponse
     {
+        abort_unless($farm->belongsToUser(auth()->id()), 403);
+
         try {
             $farm->delete();
 

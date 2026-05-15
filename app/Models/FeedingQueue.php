@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Traits\UserOwned;
 use Illuminate\Database\Eloquent\Model;
 
 class FeedingQueue extends Model
 {
+    use UserOwned;
+
     protected $table = 'feeding_queue';
 
     protected $fillable = [

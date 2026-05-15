@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Traits\UserOwned;
 use Illuminate\Database\Eloquent\Model;
 
 class Sensors extends Model
 {
+    use UserOwned;
+
     protected $table = 'sensors';
 
     protected $fillable = ['hog_pen_id', 'sensor_type', 'device_id', 'status'];

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\SensorsRequests;
+use App\Models\Hogpens;
 use App\Models\Sensors;
 use Illuminate\Http\JsonResponse;
 
@@ -11,7 +12,9 @@ class SensorsController extends Controller
     public function index(): JsonResponse
     {
         try {
-            $sensors = Sensors::with('hogpen', 'sensorReadings')->get();
+            $sensors = Sensors::with('hogpen', 'sensorReadings')
+                ->ownedByUser(auth()->id())
+                ->get();
 
             return response()->json([
                 'success' => true,
@@ -29,8 +32,14 @@ class SensorsController extends Controller
 
     public function store(SensorsRequests $request): JsonResponse
     {
+        $validated = $request->validated();
+        abort_unless(Hogpens::query()
+            ->where('id', $validated['hog_pen_id'])
+            ->whereHas('farm', fn ($query) => $query->where('user_id', auth()->id()))
+            ->exists(), 403);
+
         try {
-            $sensor = Sensors::create($request->validated());
+            $sensor = Sensors::create($validated);
 
             return response()->json([
                 'success' => true,
@@ -48,6 +57,8 @@ class SensorsController extends Controller
 
     public function show(Sensors $sensors): JsonResponse
     {
+        abort_unless($sensors->belongsToUser(auth()->id()), 403);
+
         try {
             $sensors->load('hogpen');
 

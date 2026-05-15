@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\FeedingLogsRequests;
 use App\Models\FeedingLogs;
+use App\Models\Feeders;
 use Illuminate\Http\JsonResponse;
 
 class FeedingLogsController extends Controller
@@ -11,7 +12,9 @@ class FeedingLogsController extends Controller
     public function index(): JsonResponse
     {
         try {
-            $feedingLogs = FeedingLogs::with('feeder.hogpen')->get();
+            $feedingLogs = FeedingLogs::with('feeder.hogpen')
+                ->ownedByUser(auth()->id())
+                ->get();
 
             return response()->json([
                 'success' => true,
@@ -29,8 +32,14 @@ class FeedingLogsController extends Controller
 
     public function store(FeedingLogsRequests $request): JsonResponse
     {
+        $validated = $request->validated();
+        abort_unless(Feeders::query()
+            ->where('id', $validated['feeder_id'])
+            ->whereHas('hogpen.farm', fn ($query) => $query->where('user_id', auth()->id()))
+            ->exists(), 403);
+
         try {
-            $log = FeedingLogs::create($request->validated());
+            $log = FeedingLogs::create($validated);
 
             return response()->json([
                 'success' => true,
@@ -48,6 +57,8 @@ class FeedingLogsController extends Controller
 
     public function show(FeedingLogs $feedingLogs): JsonResponse
     {
+        abort_unless($feedingLogs->belongsToUser(auth()->id()), 403);
+
         try {
             $feedingLogs->load('feeder');
 

@@ -22,14 +22,12 @@ class FarmsRequests extends FormRequest
     public function rules(): array
     {
         $rules = [
-            'user_id' => ['required', 'exists:users,id'],
             'location' => ['required', 'string', 'max:255'],
             'timezone' => ['required', 'string', 'max:50'],
         ];
 
         if ($this->isMethod('put') || $this->isMethod('patch')) {
             $rules = [
-                'user_id' => ['sometimes', 'required', 'exists:users,id'],
                 'location' => ['sometimes', 'required', 'string', 'max:255'],
                 'timezone' => ['sometimes', 'required', 'string', 'max:50'],
             ];
@@ -41,8 +39,6 @@ class FarmsRequests extends FormRequest
     public function messages(): array
     {
         return [
-            'user_id.required' => 'The user ID is required.',
-            'user_id.exists' => 'The selected user ID does not exist.',
             'location.required' => 'The location field is required.',
             'location.string' => 'The location must be a string.',
             'location.max' => 'The location may not be greater than 255 characters.',

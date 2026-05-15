@@ -11,7 +11,9 @@ class HogPensController extends Controller
     public function index(): JsonResponse
     {
         try {
-            $hogpens = Hogpens::with('farm', 'hogs', 'feeders', 'sensors')->get();
+            $hogpens = Hogpens::with('farm', 'hogs', 'feeders', 'sensors')
+                ->ownedByUser(auth()->id())
+                ->get();
 
             return response()->json([
                 'success' => true,
@@ -29,8 +31,14 @@ class HogPensController extends Controller
 
     public function store(HogPensRequests $request): JsonResponse
     {
+        $validated = $request->validated();
+        abort_unless(Farms::query()
+            ->where('id', $validated['farm_id'])
+            ->where('user_id', auth()->id())
+            ->exists(), 403);
+
         try {
-            $hogpen = Hogpens::create($request->validated());
+            $hogpen = Hogpens::create($validated);
             $hogpen->load('farm');
 
             return response()->json([
@@ -49,6 +57,8 @@ class HogPensController extends Controller
 
     public function show(Hogpens $hogpen): JsonResponse
     {
+        abort_unless($hogpen->belongsToUser(auth()->id()), 403);
+
         try {
             $hogpen->load('farm', 'hogs.hogDailyRecords');
 
@@ -68,6 +78,8 @@ class HogPensController extends Controller
 
     public function update(HogPensRequests $request, Hogpens $hogpen): JsonResponse
     {
+        abort_unless($hogpen->belongsToUser(auth()->id()), 403);
+
         try {
             $hogpen->update($request->validated());
             $hogpen->load('hogs');
@@ -88,6 +100,8 @@ class HogPensController extends Controller
 
     public function destroy(Hogpens $hogpen): JsonResponse
     {
+        abort_unless($hogpen->belongsToUser(auth()->id()), 403);
+
         try {
             $hogpen->delete();
 
