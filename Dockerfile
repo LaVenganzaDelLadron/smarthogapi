@@ -1,38 +1,21 @@
-# syntax=docker/dockerfile:1
-
-FROM composer:2 AS vendor
+FROM dunglas/frankenphp:php8.4
 
 WORKDIR /app
-COPY . /app
-RUN composer install --prefer-dist --no-dev --optimize-autoloader --no-progress --ignore-platform-reqs
 
-FROM php:8.4-fpm-alpine
-
-RUN apk add --no-cache \
-    bash \
-    curl \
+RUN apt-get update && apt-get install -y \
     git \
-    icu-dev \
-    libxml2-dev \
-    libpng-dev \
-    libjpeg-turbo-dev \
-    freetype-dev \
-    libzip-dev \
-    oniguruma-dev \
-    zlib-dev \
+    unzip \
     zip \
-    unzip
+    libpq-dev \
+    libzip-dev \
+    && docker-php-ext-install pdo_pgsql pgsql zip \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install -j$(nproc) gd pdo pdo_mysql mbstring zip xml intl bcmath
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-WORKDIR /var/www/html
+COPY . .
 
-COPY --from=vendor /app/vendor /var/www/html/vendor
-COPY --from=vendor /app/composer.lock /var/www/html/composer.lock
-COPY . /var/www/html
+RUN composer install --optimize-autoloader --no-interaction
 
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
-
-EXPOSE 9000
-CMD ["php-fpm"]
+EXPOSE 8000
+CMD ["sh", "-c", "php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=8000"]
