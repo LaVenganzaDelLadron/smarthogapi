@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\FeedingPredictionsRequests;
 use App\Models\FeedingPredictions;
+use App\Models\Hogpens;
 use Illuminate\Http\JsonResponse;
 
 class FeedingPredictionsController extends Controller
@@ -11,7 +12,10 @@ class FeedingPredictionsController extends Controller
     public function index(): JsonResponse
     {
         try {
-            $predictions = FeedingPredictions::with('hogpen', 'mlModel')->get();
+            $predictions = FeedingPredictions::with(['hogPen.farm', 'mlModel'])
+                ->ownedByUser(auth()->id())
+                ->latest()
+                ->paginate(25);
 
             return response()->json([
                 'success' => true,
@@ -22,15 +26,21 @@ class FeedingPredictionsController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve feeding predictions',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
 
     public function store(FeedingPredictionsRequests $request): JsonResponse
     {
+        $validated = $request->validated();
+        abort_unless(Hogpens::query()
+            ->where('id', $validated['hog_pen_id'])
+            ->whereHas('farm', fn ($query) => $query->where('user_id', auth()->id()))
+            ->exists(), 403);
+
         try {
-            $prediction = FeedingPredictions::create($request->validated());
+            $prediction = FeedingPredictions::create($validated);
 
             return response()->json([
                 'success' => true,
@@ -41,15 +51,17 @@ class FeedingPredictionsController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create feeding prediction',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
 
     public function show(FeedingPredictions $feedingPredictions): JsonResponse
     {
+        abort_unless($feedingPredictions->belongsToUser(auth()->id()), 403);
+
         try {
-            $feedingPredictions->load('hogpen', 'mlModel');
+            $feedingPredictions->load('hogPen.farm', 'mlModel');
 
             return response()->json([
                 'success' => true,
@@ -60,15 +72,25 @@ class FeedingPredictionsController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve feeding prediction',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
 
     public function update(FeedingPredictionsRequests $request, FeedingPredictions $feedingPredictions): JsonResponse
     {
+        abort_unless($feedingPredictions->belongsToUser(auth()->id()), 403);
+        $validated = $request->validated();
+
+        if (isset($validated['hog_pen_id'])) {
+            abort_unless(Hogpens::query()
+                ->where('id', $validated['hog_pen_id'])
+                ->whereHas('farm', fn ($query) => $query->where('user_id', auth()->id()))
+                ->exists(), 403);
+        }
+
         try {
-            $feedingPredictions->update($request->validated());
+            $feedingPredictions->update($validated);
 
             return response()->json([
                 'success' => true,
@@ -79,13 +101,15 @@ class FeedingPredictionsController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update feeding prediction',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
 
     public function destroy(FeedingPredictions $feedingPredictions): JsonResponse
     {
+        abort_unless($feedingPredictions->belongsToUser(auth()->id()), 403);
+
         try {
             $feedingPredictions->delete();
 
@@ -98,7 +122,7 @@ class FeedingPredictionsController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to delete feeding prediction',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }

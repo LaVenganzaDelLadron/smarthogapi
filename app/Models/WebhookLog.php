@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Models\Traits\UserOwned;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * Logs all webhook delivery attempts
@@ -11,9 +13,12 @@ use Illuminate\Database\Eloquent\Model;
  */
 class WebhookLog extends Model
 {
+    use UserOwned;
+
     protected $table = 'webhook_logs';
 
     protected $fillable = [
+        'farm_id',
         'url',
         'event',
         'payload',
@@ -24,6 +29,11 @@ class WebhookLog extends Model
     protected $casts = [
         'payload' => 'array',
     ];
+
+    public function farm(): BelongsTo
+    {
+        return $this->belongsTo(Farms::class, 'farm_id');
+    }
 
     /**
      * Get logs for a specific event

@@ -14,9 +14,10 @@ class FarmsController extends Controller
     public function index(): JsonResponse
     {
         try {
-            $farms = Farms::with('hogpens', 'dailyFarmReports', 'alerts')
+            $farms = Farms::with(['hogpens', 'dailyFarmReports', 'alerts'])
                 ->ownedByUser(auth()->id())
-                ->get();
+                ->latest()
+                ->paginate(25);
 
             return response()->json([
                 'success' => true,
@@ -27,7 +28,7 @@ class FarmsController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve farms',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
@@ -38,10 +39,9 @@ class FarmsController extends Controller
     public function store(FarmsRequests $request): JsonResponse
     {
         try {
-            $farm = Farms::create(array_merge(
-                $request->validated(),
-                ['user_id' => auth()->id()]
-            ));
+            $farm = new Farms($request->validated());
+            $farm->user_id = auth()->id();
+            $farm->save();
             $farm->load('hogpens');
 
             return response()->json([
@@ -53,7 +53,7 @@ class FarmsController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create farm',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
@@ -77,7 +77,7 @@ class FarmsController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve farm',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
@@ -102,7 +102,7 @@ class FarmsController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update farm',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
@@ -126,7 +126,7 @@ class FarmsController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to delete farm',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }

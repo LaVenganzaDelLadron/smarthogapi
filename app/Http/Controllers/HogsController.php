@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\HogsRequests;
-use App\Models\Hogs;
 use App\Models\Hogpens;
+use App\Models\Hogs;
 use Illuminate\Http\JsonResponse;
 
 class HogsController extends Controller
@@ -12,9 +12,10 @@ class HogsController extends Controller
     public function index(): JsonResponse
     {
         try {
-            $hogs = Hogs::with('hogpen', 'hogDailyRecords')
+            $hogs = Hogs::with(['hogpen.farm', 'hogDailyRecords'])
                 ->ownedByUser(auth()->id())
-                ->get();
+                ->latest()
+                ->paginate(25);
 
             return response()->json([
                 'success' => true,
@@ -25,7 +26,7 @@ class HogsController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve hogs',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
@@ -50,7 +51,7 @@ class HogsController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create hog',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
@@ -71,7 +72,7 @@ class HogsController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve hog',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
@@ -79,9 +80,17 @@ class HogsController extends Controller
     public function update(HogsRequests $request, Hogs $hogs): JsonResponse
     {
         abort_unless($hogs->belongsToUser(auth()->id()), 403);
+        $validated = $request->validated();
+
+        if (isset($validated['hog_pen_id'])) {
+            abort_unless(Hogpens::query()
+                ->where('id', $validated['hog_pen_id'])
+                ->whereHas('farm', fn ($query) => $query->where('user_id', auth()->id()))
+                ->exists(), 403);
+        }
 
         try {
-            $hogs->update($request->validated());
+            $hogs->update($validated);
 
             return response()->json([
                 'success' => true,
@@ -92,7 +101,7 @@ class HogsController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update hog',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
@@ -113,7 +122,7 @@ class HogsController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to delete hog',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }

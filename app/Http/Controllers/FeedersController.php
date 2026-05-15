@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\FeedersRequests;
 use App\Models\Feeders;
 use App\Models\Hogpens;
+use App\Models\IotDevices;
 use Illuminate\Http\JsonResponse;
 
 class FeedersController extends Controller
@@ -12,9 +13,10 @@ class FeedersController extends Controller
     public function index(): JsonResponse
     {
         try {
-            $feeders = Feeders::with('hogpen', 'feedingLogs')
+            $feeders = Feeders::with(['hogpen.farm', 'feedingLogs'])
                 ->ownedByUser(auth()->id())
-                ->get();
+                ->latest()
+                ->paginate(25);
 
             return response()->json([
                 'success' => true,
@@ -25,7 +27,7 @@ class FeedersController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve feeders',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
@@ -36,6 +38,10 @@ class FeedersController extends Controller
         abort_unless(Hogpens::query()
             ->where('id', $validated['hog_pen_id'])
             ->whereHas('farm', fn ($query) => $query->where('user_id', auth()->id()))
+            ->exists(), 403);
+        abort_unless(IotDevices::query()
+            ->where('id', $validated['device_id'])
+            ->ownedByUser(auth()->id())
             ->exists(), 403);
 
         try {
@@ -50,7 +56,7 @@ class FeedersController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create feeder',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
@@ -71,7 +77,7 @@ class FeedersController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve feeder',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
@@ -79,9 +85,24 @@ class FeedersController extends Controller
     public function update(FeedersRequests $request, Feeders $feeders): JsonResponse
     {
         abort_unless($feeders->belongsToUser(auth()->id()), 403);
+        $validated = $request->validated();
+
+        if (isset($validated['hog_pen_id'])) {
+            abort_unless(Hogpens::query()
+                ->where('id', $validated['hog_pen_id'])
+                ->whereHas('farm', fn ($query) => $query->where('user_id', auth()->id()))
+                ->exists(), 403);
+        }
+
+        if (isset($validated['device_id'])) {
+            abort_unless(IotDevices::query()
+                ->where('id', $validated['device_id'])
+                ->ownedByUser(auth()->id())
+                ->exists(), 403);
+        }
 
         try {
-            $feeders->update($request->validated());
+            $feeders->update($validated);
 
             return response()->json([
                 'success' => true,
@@ -92,7 +113,7 @@ class FeedersController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update feeder',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
@@ -113,7 +134,7 @@ class FeedersController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to delete feeder',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }

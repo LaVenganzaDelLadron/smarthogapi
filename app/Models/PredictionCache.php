@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Models\Traits\UserOwned;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * Caches ML prediction results in database
@@ -12,6 +14,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 class PredictionCache extends Model
 {
+    use UserOwned;
+
     protected $table = 'prediction_cache';
 
     protected $fillable = [
@@ -27,12 +31,18 @@ class PredictionCache extends Model
         'expires_at' => 'datetime',
     ];
 
+    public function pen(): BelongsTo
+    {
+        return $this->belongsTo(Hogpens::class, 'pen_id');
+    }
+
     /**
      * Get cache for a prediction
      */
     public static function get(string $type, int $penId): ?array
     {
-        $record = static::where('prediction_type', $type)
+        $record = static::query()
+            ->where('prediction_type', $type)
             ->where('pen_id', $penId)
             ->where(function ($query) {
                 $query->whereNull('expires_at')
@@ -49,7 +59,7 @@ class PredictionCache extends Model
      */
     public static function store(string $type, int $penId, array $data, int $hoursToExpire = 24): void
     {
-        static::create([
+        static::query()->create([
             'prediction_type' => $type,
             'pen_id' => $penId,
             'cache_key' => "{$type}:pen_{$penId}",

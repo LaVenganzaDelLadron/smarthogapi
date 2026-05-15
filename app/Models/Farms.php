@@ -11,7 +11,7 @@ class Farms extends Model
 
     protected $table = 'farms';
 
-    protected $fillable = ['user_id', 'location', 'timezone'];
+    protected $fillable = ['location', 'timezone'];
 
     public function user()
     {

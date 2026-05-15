@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\IotDevicesRequests;
+use App\Models\Hogpens;
 use App\Models\IotDevices;
 use Illuminate\Http\JsonResponse;
 
@@ -11,7 +12,10 @@ class IotDevicesController extends Controller
     public function index(): JsonResponse
     {
         try {
-            $devices = IotDevices::with('hogpen', 'deviceLogs')->get();
+            $devices = IotDevices::with(['hogpen.farm', 'deviceLogs'])
+                ->ownedByUser(auth()->id())
+                ->latest()
+                ->paginate(25);
 
             return response()->json([
                 'success' => true,
@@ -22,15 +26,21 @@ class IotDevicesController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve IoT devices',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
 
     public function store(IotDevicesRequests $request): JsonResponse
     {
+        $validated = $request->validated();
+        abort_unless(Hogpens::query()
+            ->where('id', $validated['hog_pen_id'])
+            ->whereHas('farm', fn ($query) => $query->where('user_id', auth()->id()))
+            ->exists(), 403);
+
         try {
-            $device = IotDevices::create($request->validated());
+            $device = IotDevices::create($validated);
 
             return response()->json([
                 'success' => true,
@@ -41,15 +51,17 @@ class IotDevicesController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create IoT device',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
 
     public function show(IotDevices $iotDevices): JsonResponse
     {
+        abort_unless($iotDevices->belongsToUser(auth()->id()), 403);
+
         try {
-            $iotDevices->load('hogpen');
+            $iotDevices->load('hogpen.farm');
 
             return response()->json([
                 'success' => true,
@@ -60,15 +72,25 @@ class IotDevicesController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve IoT device',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
 
     public function update(IotDevicesRequests $request, IotDevices $iotDevices): JsonResponse
     {
+        abort_unless($iotDevices->belongsToUser(auth()->id()), 403);
+        $validated = $request->validated();
+
+        if (isset($validated['hog_pen_id'])) {
+            abort_unless(Hogpens::query()
+                ->where('id', $validated['hog_pen_id'])
+                ->whereHas('farm', fn ($query) => $query->where('user_id', auth()->id()))
+                ->exists(), 403);
+        }
+
         try {
-            $iotDevices->update($request->validated());
+            $iotDevices->update($validated);
 
             return response()->json([
                 'success' => true,
@@ -79,13 +101,15 @@ class IotDevicesController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update IoT device',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
 
     public function destroy(IotDevices $iotDevices): JsonResponse
     {
+        abort_unless($iotDevices->belongsToUser(auth()->id()), 403);
+
         try {
             $iotDevices->delete();
 
@@ -98,7 +122,7 @@ class IotDevicesController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to delete IoT device',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }

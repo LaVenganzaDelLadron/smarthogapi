@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Traits\UserOwned;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class IotDevices extends Model
 {
+    use UserOwned;
+
     protected $table = 'iot_devices';
 
     protected $fillable = ['hog_pen_id', 'type', 'api_provider', 'status'];
@@ -30,12 +33,5 @@ class IotDevices extends Model
     public function deviceCredentials(): HasMany
     {
         return $this->hasMany(DeviceCredential::class, 'iot_device_id');
-    }
-
-    public function belongsToUser(int $userId): bool
-    {
-        return $this->hogpen()
-            ->whereHas('farm', fn ($query) => $query->where('user_id', $userId))
-            ->exists();
     }
 }

@@ -3,8 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\FeedingLogsRequests;
-use App\Models\FeedingLogs;
 use App\Models\Feeders;
+use App\Models\FeedingLogs;
+use App\Models\Hogpens;
 use Illuminate\Http\JsonResponse;
 
 class FeedingLogsController extends Controller
@@ -12,9 +13,10 @@ class FeedingLogsController extends Controller
     public function index(): JsonResponse
     {
         try {
-            $feedingLogs = FeedingLogs::with('feeder.hogpen')
+            $feedingLogs = FeedingLogs::with(['feeder.hogpen.farm', 'hogpen.farm'])
                 ->ownedByUser(auth()->id())
-                ->get();
+                ->latest()
+                ->paginate(50);
 
             return response()->json([
                 'success' => true,
@@ -25,7 +27,7 @@ class FeedingLogsController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve feeding logs',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
@@ -36,6 +38,10 @@ class FeedingLogsController extends Controller
         abort_unless(Feeders::query()
             ->where('id', $validated['feeder_id'])
             ->whereHas('hogpen.farm', fn ($query) => $query->where('user_id', auth()->id()))
+            ->exists(), 403);
+        abort_unless(Hogpens::query()
+            ->where('id', $validated['pen_id'])
+            ->whereHas('farm', fn ($query) => $query->where('user_id', auth()->id()))
             ->exists(), 403);
 
         try {
@@ -50,7 +56,7 @@ class FeedingLogsController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create feeding log',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
@@ -71,15 +77,32 @@ class FeedingLogsController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve feeding log',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
 
     public function update(FeedingLogsRequests $request, FeedingLogs $feedingLogs): JsonResponse
     {
+        abort_unless($feedingLogs->belongsToUser(auth()->id()), 403);
+        $validated = $request->validated();
+
+        if (isset($validated['feeder_id'])) {
+            abort_unless(Feeders::query()
+                ->where('id', $validated['feeder_id'])
+                ->whereHas('hogpen.farm', fn ($query) => $query->where('user_id', auth()->id()))
+                ->exists(), 403);
+        }
+
+        if (isset($validated['pen_id'])) {
+            abort_unless(Hogpens::query()
+                ->where('id', $validated['pen_id'])
+                ->whereHas('farm', fn ($query) => $query->where('user_id', auth()->id()))
+                ->exists(), 403);
+        }
+
         try {
-            $feedingLogs->update($request->validated());
+            $feedingLogs->update($validated);
 
             return response()->json([
                 'success' => true,
@@ -90,13 +113,15 @@ class FeedingLogsController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update feeding log',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
 
     public function destroy(FeedingLogs $feedingLogs): JsonResponse
     {
+        abort_unless($feedingLogs->belongsToUser(auth()->id()), 403);
+
         try {
             $feedingLogs->delete();
 
@@ -109,7 +134,7 @@ class FeedingLogsController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to delete feeding log',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }

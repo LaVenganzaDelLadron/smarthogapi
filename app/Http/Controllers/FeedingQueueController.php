@@ -29,6 +29,10 @@ class FeedingQueueController extends Controller
         try {
             $validated = $request->validated();
             $feederId = $validated['feeder_id'];
+            abort_unless(Feeders::query()
+                ->where('id', $feederId)
+                ->ownedByUser(auth()->id())
+                ->exists(), 403);
 
             // Rate limiting: 100 requests per minute per ESP32
             $rateLimitKey = "esp32:{$feederId}:requests";
@@ -60,19 +64,22 @@ class FeedingQueueController extends Controller
 
             return response()->json([
                 'success' => true,
-                'jobs' => $jobs->toArray(),
-                'count' => $jobs->count(),
+                'message' => 'Feeding jobs retrieved successfully',
+                'data' => [
+                    'jobs' => $jobs->toArray(),
+                    'count' => $jobs->count(),
+                ],
             ], 200);
         } catch (\Exception $e) {
             $this->metrics->incrementErrors('feeding-queue-next-job');
             Log::error('FeedingQueueController nextJob error', [
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch next job',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
@@ -83,6 +90,8 @@ class FeedingQueueController extends Controller
      */
     public function getRelayConfig(Feeders $feeder)
     {
+        abort_unless($feeder->belongsToUser(auth()->id()), 403);
+
         try {
             return response()->json(
                 $this->service->getRelayConfig($feeder->id),
@@ -92,13 +101,13 @@ class FeedingQueueController extends Controller
             $this->metrics->incrementErrors('relay-config');
             Log::error('FeedingQueueController getRelayConfig error', [
                 'feeder_id' => $feeder->id,
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve relay configuration',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
@@ -109,6 +118,8 @@ class FeedingQueueController extends Controller
      */
     public function update(FeedingQueueUpdateRequest $request, FeedingQueue $feedingQueue)
     {
+        abort_unless($feedingQueue->belongsToUser(auth()->id()), 403);
+
         try {
             $validated = $request->validated();
 
@@ -144,13 +155,13 @@ class FeedingQueueController extends Controller
             $this->metrics->incrementErrors('feeding-queue-update');
             Log::error('FeedingQueueController update error', [
                 'job_id' => $feedingQueue->id,
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update feeding job',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
@@ -163,13 +174,20 @@ class FeedingQueueController extends Controller
     {
         try {
             $validated = $request->validated();
-            $query = FeedingQueue::query();
+            $query = FeedingQueue::query()
+                ->with(['feeder.hogpen.farm', 'hogPen.farm'])
+                ->ownedByUser(auth()->id());
 
             if (isset($validated['status'])) {
                 $query->where('status', $validated['status']);
             }
 
             if (isset($validated['feeder_id'])) {
+                abort_unless(Feeders::query()
+                    ->where('id', $validated['feeder_id'])
+                    ->ownedByUser(auth()->id())
+                    ->exists(), 403);
+
                 $query->where('feeder_id', $validated['feeder_id']);
             }
 
@@ -179,17 +197,18 @@ class FeedingQueueController extends Controller
 
             return response()->json([
                 'success' => true,
+                'message' => 'Feeding queue retrieved successfully',
                 'data' => $query->paginate(50),
             ], 200);
         } catch (\Exception $e) {
             Log::error('FeedingQueueController index error', [
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve feeding queue',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
@@ -200,21 +219,26 @@ class FeedingQueueController extends Controller
      */
     public function show(FeedingQueue $feedingQueue)
     {
+        abort_unless($feedingQueue->belongsToUser(auth()->id()), 403);
+
         try {
+            $feedingQueue->load('feeder.hogpen.farm', 'hogPen.farm');
+
             return response()->json([
                 'success' => true,
+                'message' => 'Feeding job retrieved successfully',
                 'data' => $feedingQueue,
             ], 200);
         } catch (\Exception $e) {
             Log::error('FeedingQueueController show error', [
                 'job_id' => $feedingQueue->id,
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve feeding job',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }

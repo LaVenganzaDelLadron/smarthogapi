@@ -45,6 +45,10 @@ trait UserOwned
             return 'hogpen.farm';
         }
 
+        if (method_exists($this, 'hogPen')) {
+            return 'hogPen.farm';
+        }
+
         if (method_exists($this, 'hog')) {
             return 'hog.hogpen.farm';
         }
@@ -59,6 +63,10 @@ trait UserOwned
 
         if (method_exists($this, 'iotDevice')) {
             return 'iotDevice.hogpen.farm';
+        }
+
+        if (method_exists($this, 'pen')) {
+            return 'pen.farm';
         }
 
         return null;

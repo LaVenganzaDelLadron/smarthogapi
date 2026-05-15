@@ -16,11 +16,12 @@ class HogPensControllerTest extends TestCase
     public function test_user_can_create_hog_pen_for_owned_farm(): void
     {
         $user = User::factory()->create();
-        $farm = Farms::create([
-            'user_id' => $user->id,
+        $farm = new Farms([
             'location' => 'North Barn',
             'timezone' => 'UTC',
         ]);
+        $farm->user_id = $user->id;
+        $farm->save();
 
         Sanctum::actingAs($user);
 
@@ -49,11 +50,12 @@ class HogPensControllerTest extends TestCase
     {
         $user = User::factory()->create();
         $otherUser = User::factory()->create();
-        $farm = Farms::create([
-            'user_id' => $otherUser->id,
+        $farm = new Farms([
             'location' => 'Other Barn',
             'timezone' => 'UTC',
         ]);
+        $farm->user_id = $otherUser->id;
+        $farm->save();
 
         Sanctum::actingAs($user);
 

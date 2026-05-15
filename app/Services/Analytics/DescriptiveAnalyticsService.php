@@ -14,42 +14,42 @@ class DescriptiveAnalyticsService
 
     public function dashboard(array $filters = []): array
     {
-        $farmId = $filters['farm_id'] ?? null;
+        $farmIds = $this->resolveFarmIds($filters);
         [$todayStart, $todayEnd] = $this->todayRange();
 
         $hogCount = DB::table('hogs')
             ->join('hog_pens', 'hog_pens.id', '=', 'hogs.hog_pen_id')
-            ->when($farmId, fn ($query) => $query->where('hog_pens.farm_id', $farmId))
+            ->whereIn('hog_pens.farm_id', $farmIds)
             ->count();
 
         $activePensCount = DB::table('hog_pens')
-            ->when($farmId, fn ($query) => $query->where('farm_id', $farmId))
+            ->whereIn('farm_id', $farmIds)
             ->where('status', 1)
             ->count();
 
         $feedUsedToday = (float) DB::table('feeding_logs')
             ->join('hog_pens', 'hog_pens.id', '=', 'feeding_logs.pen_id')
-            ->when($farmId, fn ($query) => $query->where('hog_pens.farm_id', $farmId))
+            ->whereIn('hog_pens.farm_id', $farmIds)
             ->whereBetween('feeding_logs.created_at', [$todayStart, $todayEnd])
             ->sum('feeding_logs.feed_amount_given');
 
         $environmentAggregate = DB::table('sensor_readings')
             ->join('sensors', 'sensors.id', '=', 'sensor_readings.sensor_id')
             ->join('hog_pens', 'hog_pens.id', '=', 'sensors.hog_pen_id')
-            ->when($farmId, fn ($query) => $query->where('hog_pens.farm_id', $farmId))
+            ->whereIn('hog_pens.farm_id', $farmIds)
             ->whereBetween('sensor_readings.created_at', [$todayStart, $todayEnd])
             ->selectRaw('AVG(CASE WHEN LOWER(sensors.sensor_type) LIKE "%temp%" THEN sensor_readings.value END) as avg_temperature')
             ->selectRaw('AVG(CASE WHEN LOWER(sensors.sensor_type) LIKE "%humid%" THEN sensor_readings.value END) as avg_humidity')
             ->first();
 
         $alertsTriggeredToday = DB::table('alerts')
-            ->when($farmId, fn ($query) => $query->where('farm_id', $farmId))
+            ->whereIn('farm_id', $farmIds)
             ->whereBetween('created_at', [$todayStart, $todayEnd])
             ->count();
 
         $sickHogCount = DB::table('hog_daily_records as hdr')
             ->join('hog_pens', 'hog_pens.id', '=', 'hdr.hog_pen_id')
-            ->when($farmId, fn ($query) => $query->where('hog_pens.farm_id', $farmId))
+            ->whereIn('hog_pens.farm_id', $farmIds)
             ->whereRaw($this->healthStatusSql('hdr.health_status').' NOT IN ('.$this->quotedList(self::HEALTHY_STATUSES).')')
             ->whereRaw('hdr.recorded_date = (select max(recorded_date) from hog_daily_records where hog_id = hdr.hog_id)')
             ->distinct()
@@ -63,19 +63,19 @@ class DescriptiveAnalyticsService
             'average_humidity_today' => round((float) ($environmentAggregate?->avg_humidity ?? 0), 2),
             'alerts_triggered_today' => $alertsTriggeredToday,
             'sick_hog_count' => $sickHogCount,
-            'average_weekly_weight_gain' => round($this->averageWeeklyWeightGain($farmId), 2),
+            'average_weekly_weight_gain' => round($this->averageWeeklyWeightGain($farmIds), 2),
         ];
     }
 
     public function feedReport(array $filters = []): array
     {
-        $farmId = $filters['farm_id'] ?? null;
+        $farmIds = $this->resolveFarmIds($filters);
         [$startDate, $endDate] = $this->resolveDateRange($filters, 30);
         $limit = $this->resolveLimit($filters);
 
         $dailyUsage = DB::table('feeding_logs')
             ->join('hog_pens', 'hog_pens.id', '=', 'feeding_logs.pen_id')
-            ->when($farmId, fn ($query) => $query->where('hog_pens.farm_id', $farmId))
+            ->whereIn('hog_pens.farm_id', $farmIds)
             ->whereBetween('feeding_logs.created_at', [$startDate, $endDate])
             ->selectRaw('DATE(feeding_logs.created_at) as usage_date, ROUND(SUM(feeding_logs.feed_amount_given), 2) as total_feed_used')
             ->groupByRaw('DATE(feeding_logs.created_at)')
@@ -84,7 +84,7 @@ class DescriptiveAnalyticsService
 
         $weeklyUsage = DB::table('feeding_logs')
             ->join('hog_pens', 'hog_pens.id', '=', 'feeding_logs.pen_id')
-            ->when($farmId, fn ($query) => $query->where('hog_pens.farm_id', $farmId))
+            ->whereIn('hog_pens.farm_id', $farmIds)
             ->whereBetween('feeding_logs.created_at', [$startDate, $endDate])
             ->selectRaw($this->weekGroupingExpression('feeding_logs.created_at').' as year_week, ROUND(SUM(feeding_logs.feed_amount_given), 2) as total_feed_used')
             ->groupByRaw($this->weekGroupingExpression('feeding_logs.created_at'))
@@ -93,7 +93,7 @@ class DescriptiveAnalyticsService
 
         $usageByPen = DB::table('feeding_logs')
             ->join('hog_pens', 'hog_pens.id', '=', 'feeding_logs.pen_id')
-            ->when($farmId, fn ($query) => $query->where('hog_pens.farm_id', $farmId))
+            ->whereIn('hog_pens.farm_id', $farmIds)
             ->whereBetween('feeding_logs.created_at', [$startDate, $endDate])
             ->selectRaw('hog_pens.id as pen_id, hog_pens.name as pen_name, ROUND(SUM(feeding_logs.feed_amount_given), 2) as total_feed_used')
             ->groupBy('hog_pens.id', 'hog_pens.name')
@@ -103,7 +103,7 @@ class DescriptiveAnalyticsService
         $usageByHog = DB::table('hog_daily_records')
             ->join('hogs', 'hogs.id', '=', 'hog_daily_records.hog_id')
             ->join('hog_pens', 'hog_pens.id', '=', 'hog_daily_records.hog_pen_id')
-            ->when($farmId, fn ($query) => $query->where('hog_pens.farm_id', $farmId))
+            ->whereIn('hog_pens.farm_id', $farmIds)
             ->whereBetween('hog_daily_records.recorded_date', [$startDate, $endDate])
             ->selectRaw('hogs.id as hog_id, hogs.ear_tag_id, ROUND(SUM(hog_daily_records.feed_consumed), 2) as total_feed_consumed')
             ->groupBy('hogs.id', 'hogs.ear_tag_id')
@@ -127,14 +127,14 @@ class DescriptiveAnalyticsService
 
     public function growthReport(array $filters = []): array
     {
-        $farmId = $filters['farm_id'] ?? null;
+        $farmIds = $this->resolveFarmIds($filters);
         [$startDate, $endDate] = $this->resolveDateRange($filters, 30);
         $limit = $this->resolveLimit($filters);
 
         $weightTrendRows = DB::table('hog_daily_records')
             ->join('hogs', 'hogs.id', '=', 'hog_daily_records.hog_id')
             ->join('hog_pens', 'hog_pens.id', '=', 'hog_daily_records.hog_pen_id')
-            ->when($farmId, fn ($query) => $query->where('hog_pens.farm_id', $farmId))
+            ->whereIn('hog_pens.farm_id', $farmIds)
             ->whereBetween('hog_daily_records.recorded_date', [$startDate, $endDate])
             ->selectRaw('hogs.id as hog_id, hogs.ear_tag_id, DATE(hog_daily_records.recorded_date) as recorded_date, ROUND(AVG(hog_daily_records.weight), 2) as average_weight')
             ->groupBy('hogs.id', 'hogs.ear_tag_id')
@@ -162,7 +162,7 @@ class DescriptiveAnalyticsService
         $hogGrowthBase = DB::table('hog_daily_records')
             ->join('hogs', 'hogs.id', '=', 'hog_daily_records.hog_id')
             ->join('hog_pens', 'hog_pens.id', '=', 'hog_daily_records.hog_pen_id')
-            ->when($farmId, fn ($query) => $query->where('hog_pens.farm_id', $farmId))
+            ->whereIn('hog_pens.farm_id', $farmIds)
             ->whereBetween('hog_daily_records.recorded_date', [$startDate, $endDate])
             ->selectRaw('hog_daily_records.hog_id, hog_daily_records.hog_pen_id, hogs.ear_tag_id, ROUND(MAX(hog_daily_records.weight) - MIN(hog_daily_records.weight), 2) as weight_gain')
             ->groupBy('hog_daily_records.hog_id', 'hog_daily_records.hog_pen_id', 'hogs.ear_tag_id');
@@ -195,7 +195,7 @@ class DescriptiveAnalyticsService
                 'end_date' => $endDate->toDateString(),
             ],
             'weight_trend_per_hog' => $weightTrendPerHog,
-            'average_weekly_weight_gain' => round($this->averageWeeklyWeightGain($farmId, $endDate), 2),
+            'average_weekly_weight_gain' => round($this->averageWeeklyWeightGain($farmIds, $endDate), 2),
             'pen_growth_comparison' => $penGrowthComparison,
             'underperforming_hogs' => $underperformingHogs,
             'fastest_growing_hogs' => $fastestGrowingHogs,
@@ -204,13 +204,13 @@ class DescriptiveAnalyticsService
 
     public function environmentReport(array $filters = []): array
     {
-        $farmId = $filters['farm_id'] ?? null;
+        $farmIds = $this->resolveFarmIds($filters);
         [$startDate, $endDate] = $this->resolveDateRange($filters, 30);
 
         $dailyEnvironment = DB::table('sensor_readings')
             ->join('sensors', 'sensors.id', '=', 'sensor_readings.sensor_id')
             ->join('hog_pens', 'hog_pens.id', '=', 'sensors.hog_pen_id')
-            ->when($farmId, fn ($query) => $query->where('hog_pens.farm_id', $farmId))
+            ->whereIn('hog_pens.farm_id', $farmIds)
             ->whereBetween('sensor_readings.created_at', [$startDate, $endDate])
             ->selectRaw('DATE(sensor_readings.created_at) as reading_date')
             ->selectRaw('ROUND(AVG(CASE WHEN LOWER(sensors.sensor_type) LIKE "%temp%" THEN sensor_readings.value END), 2) as average_temperature')
@@ -223,7 +223,7 @@ class DescriptiveAnalyticsService
         $unsafeConditionCounts = DB::table('sensor_readings')
             ->join('sensors', 'sensors.id', '=', 'sensor_readings.sensor_id')
             ->join('hog_pens', 'hog_pens.id', '=', 'sensors.hog_pen_id')
-            ->when($farmId, fn ($query) => $query->where('hog_pens.farm_id', $farmId))
+            ->whereIn('hog_pens.farm_id', $farmIds)
             ->whereBetween('sensor_readings.created_at', [$startDate, $endDate])
             ->selectRaw('SUM(CASE WHEN LOWER(sensors.sensor_type) LIKE "%temp%" AND (sensor_readings.value < 18 OR sensor_readings.value > 30) THEN 1 ELSE 0 END) as unsafe_temperature_count')
             ->selectRaw('SUM(CASE WHEN LOWER(sensors.sensor_type) LIKE "%humid%" AND (sensor_readings.value < 55 OR sensor_readings.value > 80) THEN 1 ELSE 0 END) as unsafe_humidity_count')
@@ -233,7 +233,7 @@ class DescriptiveAnalyticsService
         $penEnvironmentalComparison = DB::table('sensor_readings')
             ->join('sensors', 'sensors.id', '=', 'sensor_readings.sensor_id')
             ->join('hog_pens', 'hog_pens.id', '=', 'sensors.hog_pen_id')
-            ->when($farmId, fn ($query) => $query->where('hog_pens.farm_id', $farmId))
+            ->whereIn('hog_pens.farm_id', $farmIds)
             ->whereBetween('sensor_readings.created_at', [$startDate, $endDate])
             ->selectRaw('hog_pens.id as pen_id, hog_pens.name as pen_name')
             ->selectRaw('ROUND(AVG(CASE WHEN LOWER(sensors.sensor_type) LIKE "%temp%" THEN sensor_readings.value END), 2) as average_temperature')
@@ -272,11 +272,11 @@ class DescriptiveAnalyticsService
 
     public function alertsReport(array $filters = []): array
     {
-        $farmId = $filters['farm_id'] ?? null;
+        $farmIds = $this->resolveFarmIds($filters);
         [$startDate, $endDate] = $this->resolveDateRange($filters, 30);
 
         $alertsBase = DB::table('alerts')
-            ->when($farmId, fn ($query) => $query->where('alerts.farm_id', $farmId))
+            ->whereIn('alerts.farm_id', $farmIds)
             ->whereBetween('alerts.created_at', [$startDate, $endDate]);
 
         $alertsByType = (clone $alertsBase)
@@ -305,7 +305,7 @@ class DescriptiveAnalyticsService
             ->first();
 
         $totalUnresolvedAlerts = DB::table('alerts')
-            ->when($farmId, fn ($query) => $query->where('alerts.farm_id', $farmId))
+            ->whereIn('alerts.farm_id', $farmIds)
             ->whereRaw($this->healthStatusSql('alerts.status').' IN ('.$this->quotedList(self::UNRESOLVED_ALERT_STATUSES).')')
             ->count();
 
@@ -324,18 +324,18 @@ class DescriptiveAnalyticsService
 
     public function penRanking(array $filters = []): array
     {
-        $farmId = $filters['farm_id'] ?? null;
+        $farmIds = $this->resolveFarmIds($filters);
         [$startDate, $endDate] = $this->resolveDateRange($filters, 30);
 
         $pens = DB::table('hog_pens')
-            ->when($farmId, fn ($query) => $query->where('farm_id', $farmId))
+            ->whereIn('farm_id', $farmIds)
             ->select('id', 'name', 'farm_id')
             ->get()
             ->keyBy('id');
 
         $hogGrowth = DB::table('hog_daily_records')
             ->join('hog_pens', 'hog_pens.id', '=', 'hog_daily_records.hog_pen_id')
-            ->when($farmId, fn ($query) => $query->where('hog_pens.farm_id', $farmId))
+            ->whereIn('hog_pens.farm_id', $farmIds)
             ->whereBetween('hog_daily_records.recorded_date', [$startDate, $endDate])
             ->selectRaw('hog_daily_records.hog_id, hog_daily_records.hog_pen_id, ROUND(MAX(hog_daily_records.weight) - MIN(hog_daily_records.weight), 2) as weight_gain, SUM(hog_daily_records.feed_consumed) as total_feed_consumed')
             ->groupBy('hog_daily_records.hog_id', 'hog_daily_records.hog_pen_id');
@@ -354,7 +354,7 @@ class DescriptiveAnalyticsService
 
         $alertsByPen = DB::table('alerts')
             ->join('hog_pens', 'hog_pens.id', '=', 'alerts.hog_pen_id')
-            ->when($farmId, fn ($query) => $query->where('hog_pens.farm_id', $farmId))
+            ->whereIn('hog_pens.farm_id', $farmIds)
             ->whereBetween('alerts.created_at', [$startDate, $endDate])
             ->selectRaw('alerts.hog_pen_id, COUNT(*) as total_alerts')
             ->groupBy('alerts.hog_pen_id')
@@ -362,7 +362,7 @@ class DescriptiveAnalyticsService
 
         $healthyRatios = DB::table('hog_daily_records as hdr')
             ->join('hog_pens', 'hog_pens.id', '=', 'hdr.hog_pen_id')
-            ->when($farmId, fn ($query) => $query->where('hog_pens.farm_id', $farmId))
+            ->whereIn('hog_pens.farm_id', $farmIds)
             ->whereRaw('hdr.recorded_date = (select max(recorded_date) from hog_daily_records where hog_id = hdr.hog_id)')
             ->selectRaw('hdr.hog_pen_id, SUM(CASE WHEN '.$this->healthStatusSql('hdr.health_status').' IN ('.$this->quotedList(self::HEALTHY_STATUSES).') THEN 1 ELSE 0 END) as healthy_hogs, COUNT(*) as total_hogs')
             ->groupBy('hdr.hog_pen_id')
@@ -442,19 +442,46 @@ class DescriptiveAnalyticsService
         ];
     }
 
-    private function averageWeeklyWeightGain(?int $farmId = null, ?Carbon $anchorDate = null): float
+    /**
+     * @param  array<int, int>  $farmIds
+     */
+    private function averageWeeklyWeightGain(array $farmIds, ?Carbon $anchorDate = null): float
     {
         $anchor = $anchorDate?->copy()->endOfDay() ?? now()->endOfDay();
         $start = $anchor->copy()->subDays(6)->startOfDay();
 
         $weeklyGain = DB::table('hog_daily_records')
             ->join('hog_pens', 'hog_pens.id', '=', 'hog_daily_records.hog_pen_id')
-            ->when($farmId, fn ($query) => $query->where('hog_pens.farm_id', $farmId))
+            ->whereIn('hog_pens.farm_id', $farmIds)
             ->whereBetween('hog_daily_records.recorded_date', [$start, $anchor])
             ->selectRaw('hog_daily_records.hog_id, MAX(hog_daily_records.weight) - MIN(hog_daily_records.weight) as weekly_gain')
             ->groupBy('hog_daily_records.hog_id');
 
         return (float) (DB::query()->fromSub($weeklyGain, 'weekly_growth')->avg('weekly_gain') ?? 0);
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return array<int, int>
+     */
+    private function resolveFarmIds(array $filters): array
+    {
+        if (isset($filters['farm_id'])) {
+            return [(int) $filters['farm_id']];
+        }
+
+        if (isset($filters['user_id'])) {
+            return DB::table('farms')
+                ->where('user_id', $filters['user_id'])
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+        }
+
+        return DB::table('farms')
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
     }
 
     /**

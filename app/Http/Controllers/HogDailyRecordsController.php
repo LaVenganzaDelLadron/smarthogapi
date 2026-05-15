@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\HogDailyRecordsRequests;
 use App\Models\HogDailyRecords;
+use App\Models\Hogpens;
+use App\Models\Hogs;
 use Illuminate\Http\JsonResponse;
 
 class HogDailyRecordsController extends Controller
@@ -11,7 +13,10 @@ class HogDailyRecordsController extends Controller
     public function index(): JsonResponse
     {
         try {
-            $records = HogDailyRecords::with('hog.hogpen')->get();
+            $records = HogDailyRecords::with(['hog.hogpen.farm', 'hogpen.farm'])
+                ->ownedByUser(auth()->id())
+                ->latest('recorded_date')
+                ->paginate(100);
 
             return response()->json([
                 'success' => true,
@@ -22,15 +27,18 @@ class HogDailyRecordsController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve hog daily records',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
 
     public function store(HogDailyRecordsRequests $request): JsonResponse
     {
+        $validated = $request->validated();
+        $this->authorizeHogRecordInput($validated);
+
         try {
-            $record = HogDailyRecords::create($request->validated());
+            $record = HogDailyRecords::create($validated);
 
             return response()->json([
                 'success' => true,
@@ -41,15 +49,17 @@ class HogDailyRecordsController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create hog daily record',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
 
     public function show(HogDailyRecords $hogDailyRecords): JsonResponse
     {
+        abort_unless($hogDailyRecords->belongsToUser(auth()->id()), 403);
+
         try {
-            $hogDailyRecords->load('hog');
+            $hogDailyRecords->load('hog.hogpen.farm', 'hogpen.farm');
 
             return response()->json([
                 'success' => true,
@@ -60,15 +70,19 @@ class HogDailyRecordsController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve hog daily record',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
 
     public function update(HogDailyRecordsRequests $request, HogDailyRecords $hogDailyRecords): JsonResponse
     {
+        abort_unless($hogDailyRecords->belongsToUser(auth()->id()), 403);
+        $validated = $request->validated();
+        $this->authorizeHogRecordInput($validated);
+
         try {
-            $hogDailyRecords->update($request->validated());
+            $hogDailyRecords->update($validated);
 
             return response()->json([
                 'success' => true,
@@ -79,13 +93,15 @@ class HogDailyRecordsController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update hog daily record',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
 
     public function destroy(HogDailyRecords $hogDailyRecords): JsonResponse
     {
+        abort_unless($hogDailyRecords->belongsToUser(auth()->id()), 403);
+
         try {
             $hogDailyRecords->delete();
 
@@ -98,8 +114,28 @@ class HogDailyRecordsController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to delete hog daily record',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    private function authorizeHogRecordInput(array $validated): void
+    {
+        if (isset($validated['hog_id'])) {
+            abort_unless(Hogs::query()
+                ->where('id', $validated['hog_id'])
+                ->ownedByUser(auth()->id())
+                ->exists(), 403);
+        }
+
+        if (isset($validated['hog_pen_id'])) {
+            abort_unless(Hogpens::query()
+                ->where('id', $validated['hog_pen_id'])
+                ->whereHas('farm', fn ($query) => $query->where('user_id', auth()->id()))
+                ->exists(), 403);
         }
     }
 }

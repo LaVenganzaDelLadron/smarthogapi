@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\FeedingScheduleRequests;
 use App\Models\FeedingSchedule;
+use App\Models\Hogpens;
 use Illuminate\Http\JsonResponse;
 
 class FeedingScheduleController extends Controller
@@ -11,7 +12,10 @@ class FeedingScheduleController extends Controller
     public function index(): JsonResponse
     {
         try {
-            $schedules = FeedingSchedule::with('hogpen')->get();
+            $schedules = FeedingSchedule::with('hogpen.farm')
+                ->ownedByUser(auth()->id())
+                ->latest()
+                ->paginate(25);
 
             return response()->json([
                 'success' => true,
@@ -22,15 +26,21 @@ class FeedingScheduleController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve feeding schedules',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
 
     public function store(FeedingScheduleRequests $request): JsonResponse
     {
+        $validated = $request->validated();
+        abort_unless(Hogpens::query()
+            ->where('id', $validated['hog_pen_id'])
+            ->whereHas('farm', fn ($query) => $query->where('user_id', auth()->id()))
+            ->exists(), 403);
+
         try {
-            $schedule = FeedingSchedule::create($request->validated());
+            $schedule = FeedingSchedule::create($validated);
 
             return response()->json([
                 'success' => true,
@@ -41,15 +51,17 @@ class FeedingScheduleController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create feeding schedule',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
 
     public function show(FeedingSchedule $feedingSchedule): JsonResponse
     {
+        abort_unless($feedingSchedule->belongsToUser(auth()->id()), 403);
+
         try {
-            $feedingSchedule->load('hogpen');
+            $feedingSchedule->load('hogpen.farm');
 
             return response()->json([
                 'success' => true,
@@ -60,15 +72,25 @@ class FeedingScheduleController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve feeding schedule',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
 
     public function update(FeedingScheduleRequests $request, FeedingSchedule $feedingSchedule): JsonResponse
     {
+        abort_unless($feedingSchedule->belongsToUser(auth()->id()), 403);
+        $validated = $request->validated();
+
+        if (isset($validated['hog_pen_id'])) {
+            abort_unless(Hogpens::query()
+                ->where('id', $validated['hog_pen_id'])
+                ->whereHas('farm', fn ($query) => $query->where('user_id', auth()->id()))
+                ->exists(), 403);
+        }
+
         try {
-            $feedingSchedule->update($request->validated());
+            $feedingSchedule->update($validated);
 
             return response()->json([
                 'success' => true,
@@ -79,13 +101,15 @@ class FeedingScheduleController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update feeding schedule',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
 
     public function destroy(FeedingSchedule $feedingSchedule): JsonResponse
     {
+        abort_unless($feedingSchedule->belongsToUser(auth()->id()), 403);
+
         try {
             $feedingSchedule->delete();
 
@@ -98,7 +122,7 @@ class FeedingScheduleController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to delete feeding schedule',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }

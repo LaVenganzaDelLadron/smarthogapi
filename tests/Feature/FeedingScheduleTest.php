@@ -29,11 +29,12 @@ class FeedingScheduleTest extends TestCase
             'password' => bcrypt('password'),
         ]);
 
-        $this->farm = Farms::create([
-            'user_id' => $this->user->id,
+        $this->farm = new Farms([
             'location' => 'Test Farm',
             'timezone' => 'UTC',
         ]);
+        $this->farm->user_id = $this->user->id;
+        $this->farm->save();
 
         $this->pen = Hogpens::create([
             'farm_id' => $this->farm->id,

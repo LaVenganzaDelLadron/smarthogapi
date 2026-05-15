@@ -103,20 +103,20 @@ Route::prefix('/v1')->group(function () {
         // Resource routes
         Route::apiResource('farms', FarmsController::class);
         Route::apiResource('hogpens', HogPensController::class);
-        Route::apiResource('hogs', HogsController::class);
-        Route::apiResource('feeders', FeedersController::class);
-        Route::apiResource('feeding-logs', FeedingLogsController::class);
-        Route::apiResource('feeding-schedule', FeedingScheduleController::class);
-        Route::apiResource('sensors', SensorsController::class);
-        Route::apiResource('sensor-readings', SensorReadingsController::class);
-        Route::apiResource('daily-farm-reports', DailyFarmReportsController::class);
-        Route::apiResource('alerts', AlertsController::class);
-        Route::apiResource('iot-devices', IotDevicesController::class);
-        Route::apiResource('device-logs', DeviceLogsController::class);
-        Route::apiResource('hog-daily-records', HogDailyRecordsController::class);
+        Route::apiResource('hogs', HogsController::class)->parameters(['hogs' => 'hogs']);
+        Route::apiResource('feeders', FeedersController::class)->parameters(['feeders' => 'feeders']);
+        Route::apiResource('feeding-logs', FeedingLogsController::class)->parameters(['feeding-logs' => 'feedingLogs']);
+        Route::apiResource('feeding-schedule', FeedingScheduleController::class)->parameters(['feeding-schedule' => 'feedingSchedule']);
+        Route::apiResource('sensors', SensorsController::class)->parameters(['sensors' => 'sensors']);
+        Route::apiResource('sensor-readings', SensorReadingsController::class)->parameters(['sensor-readings' => 'sensorReadings']);
+        Route::apiResource('daily-farm-reports', DailyFarmReportsController::class)->parameters(['daily-farm-reports' => 'dailyFarmReports']);
+        Route::apiResource('alerts', AlertsController::class)->parameters(['alerts' => 'alerts']);
+        Route::apiResource('iot-devices', IotDevicesController::class)->parameters(['iot-devices' => 'iotDevices']);
+        Route::apiResource('device-logs', DeviceLogsController::class)->parameters(['device-logs' => 'deviceLogs']);
+        Route::apiResource('hog-daily-records', HogDailyRecordsController::class)->parameters(['hog-daily-records' => 'hogDailyRecords']);
 
         Route::apiResource('ml-models', MlModelsController::class);
-        Route::apiResource('feeding-predictions', FeedingPredictionsController::class);
+        Route::apiResource('feeding-predictions', FeedingPredictionsController::class)->parameters(['feeding-predictions' => 'feedingPredictions']);
 
         // ESP32 Feeding Queue Routes
         Route::prefix('feeding-queue')->controller(FeedingQueueController::class)->group(function () {

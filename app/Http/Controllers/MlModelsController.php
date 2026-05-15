@@ -22,7 +22,7 @@ class MlModelsController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve ML models',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
@@ -41,7 +41,7 @@ class MlModelsController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create ML model',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
@@ -58,7 +58,7 @@ class MlModelsController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve ML model',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
@@ -77,7 +77,7 @@ class MlModelsController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update ML model',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
@@ -96,7 +96,7 @@ class MlModelsController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to delete ML model',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }

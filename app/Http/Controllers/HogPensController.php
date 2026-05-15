@@ -12,9 +12,10 @@ class HogPensController extends Controller
     public function index(): JsonResponse
     {
         try {
-            $hogpens = Hogpens::with('farm', 'hogs', 'feeders', 'sensors')
+            $hogpens = Hogpens::with(['farm', 'hogs', 'feeders', 'sensors'])
                 ->ownedByUser(auth()->id())
-                ->get();
+                ->latest()
+                ->paginate(25);
 
             return response()->json([
                 'success' => true,
@@ -25,7 +26,7 @@ class HogPensController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve hog pens',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
@@ -51,7 +52,7 @@ class HogPensController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create hog pen',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
@@ -72,7 +73,7 @@ class HogPensController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve hog pen',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
@@ -80,9 +81,17 @@ class HogPensController extends Controller
     public function update(HogPensRequests $request, Hogpens $hogpen): JsonResponse
     {
         abort_unless($hogpen->belongsToUser(auth()->id()), 403);
+        $validated = $request->validated();
+
+        if (isset($validated['farm_id'])) {
+            abort_unless(Farms::query()
+                ->where('id', $validated['farm_id'])
+                ->where('user_id', auth()->id())
+                ->exists(), 403);
+        }
 
         try {
-            $hogpen->update($request->validated());
+            $hogpen->update($validated);
             $hogpen->load('hogs');
 
             return response()->json([
@@ -94,7 +103,7 @@ class HogPensController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update hog pen',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }
@@ -115,7 +124,7 @@ class HogPensController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to delete hog pen',
-                'error' => $e->getMessage(),
+                'error' => 'Server error',
             ], 500);
         }
     }

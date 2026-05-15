@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\BatchPredictionRequest;
 use App\Http\Requests\PredictionRequest;
+use App\Models\Hogpens;
 use App\Services\FastAPIIntegration;
 use Illuminate\Http\JsonResponse;
 
@@ -42,6 +43,7 @@ class PredictionController extends Controller
     public function feedRecommendation(PredictionRequest $request): JsonResponse
     {
         $validated = $request->validated();
+        $this->authorizePen($validated['pen_id']);
         $overrides = $request->except(['pen_id', 'async', 'use_cache']);
 
         $result = $this->fastapi->predictFeedRecommendation(
@@ -53,8 +55,8 @@ class PredictionController extends Controller
 
         if (! $result['success']) {
             return response()->json([
-                'error' => $result['error'],
-                'type' => 'prediction_error',
+                'success' => false,
+                'message' => 'Prediction failed',
             ], 400);
         }
 
@@ -82,6 +84,7 @@ class PredictionController extends Controller
     public function weightTrend(PredictionRequest $request): JsonResponse
     {
         $validated = $request->validated();
+        $this->authorizePen($validated['pen_id']);
         $overrides = $request->except(['pen_id', 'async', 'use_cache']);
 
         $result = $this->fastapi->predictWeightTrend(
@@ -93,8 +96,8 @@ class PredictionController extends Controller
 
         if (! $result['success']) {
             return response()->json([
-                'error' => $result['error'],
-                'type' => 'prediction_error',
+                'success' => false,
+                'message' => 'Prediction failed',
             ], 400);
         }
 
@@ -121,6 +124,7 @@ class PredictionController extends Controller
     public function penStatus(PredictionRequest $request): JsonResponse
     {
         $validated = $request->validated();
+        $this->authorizePen($validated['pen_id']);
         $overrides = $request->except(['pen_id', 'async', 'use_cache']);
 
         $result = $this->fastapi->predictPenStatus(
@@ -132,8 +136,8 @@ class PredictionController extends Controller
 
         if (! $result['success']) {
             return response()->json([
-                'error' => $result['error'],
-                'type' => 'prediction_error',
+                'success' => false,
+                'message' => 'Prediction failed',
             ], 400);
         }
 
@@ -159,6 +163,7 @@ class PredictionController extends Controller
     public function batchFeedRecommendation(BatchPredictionRequest $request): JsonResponse
     {
         $validated = $request->validated();
+        $this->authorizePens($validated['pen_ids']);
 
         $result = $this->fastapi->batchPredictFeedRecommendation(
             $validated['pen_ids'],
@@ -167,8 +172,8 @@ class PredictionController extends Controller
 
         if (! $result['success']) {
             return response()->json([
-                'error' => $result['error'],
-                'type' => 'prediction_error',
+                'success' => false,
+                'message' => 'Prediction failed',
             ], 400);
         }
 
@@ -195,6 +200,7 @@ class PredictionController extends Controller
     public function batchWeightTrend(BatchPredictionRequest $request): JsonResponse
     {
         $validated = $request->validated();
+        $this->authorizePens($validated['pen_ids']);
 
         $result = $this->fastapi->batchPredictWeightTrend(
             $validated['pen_ids'],
@@ -203,8 +209,8 @@ class PredictionController extends Controller
 
         if (! $result['success']) {
             return response()->json([
-                'error' => $result['error'],
-                'type' => 'prediction_error',
+                'success' => false,
+                'message' => 'Prediction failed',
             ], 400);
         }
 
@@ -231,6 +237,7 @@ class PredictionController extends Controller
     public function batchPenStatus(BatchPredictionRequest $request): JsonResponse
     {
         $validated = $request->validated();
+        $this->authorizePens($validated['pen_ids']);
 
         $result = $this->fastapi->batchPredictPenStatus(
             $validated['pen_ids'],
@@ -239,8 +246,8 @@ class PredictionController extends Controller
 
         if (! $result['success']) {
             return response()->json([
-                'error' => $result['error'],
-                'type' => 'prediction_error',
+                'success' => false,
+                'message' => 'Prediction failed',
             ], 400);
         }
 
@@ -252,5 +259,26 @@ class PredictionController extends Controller
             'message' => $result['message'] ?? null,
             'data' => $result['data'] ?? null,
         ], $statusCode);
+    }
+
+    private function authorizePen(int $penId): void
+    {
+        abort_unless(Hogpens::query()
+            ->where('id', $penId)
+            ->whereHas('farm', fn ($query) => $query->where('user_id', auth()->id()))
+            ->exists(), 403);
+    }
+
+    /**
+     * @param  array<int, int>  $penIds
+     */
+    private function authorizePens(array $penIds): void
+    {
+        $ownedCount = Hogpens::query()
+            ->whereIn('id', $penIds)
+            ->whereHas('farm', fn ($query) => $query->where('user_id', auth()->id()))
+            ->count();
+
+        abort_unless($ownedCount === count(array_unique($penIds)), 403);
     }
 }
