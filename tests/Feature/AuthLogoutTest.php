@@ -28,8 +28,38 @@ class AuthLogoutTest extends TestCase
 
         $response
             ->assertStatus(200)
-            ->assertJson(['message' => 'Logged out successfully.']);
+            ->assertExactJson([
+                'success' => true,
+                'message' => 'Logged out successfully',
+            ]);
 
         $this->assertDatabaseCount('personal_access_tokens', 0);
+    }
+
+    public function test_logout_requires_authentication(): void
+    {
+        $response = $this->postJson('/api/auth/logout');
+
+        $response
+            ->assertUnauthorized()
+            ->assertExactJson([
+                'success' => false,
+                'message' => 'Unauthorized',
+            ]);
+    }
+
+    public function test_login_is_rate_limited(): void
+    {
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $this->postJson('/api/auth/login', [
+                'email' => 'missing@example.com',
+                'password' => 'password',
+            ])->assertUnauthorized();
+        }
+
+        $this->postJson('/api/auth/login', [
+            'email' => 'missing@example.com',
+            'password' => 'password',
+        ])->assertTooManyRequests();
     }
 }

@@ -16,14 +16,14 @@ class CorsTest extends TestCase
         $response = $this->withHeaders([
             'Origin' => 'https://smarthogv2.vercel.app',
             'Access-Control-Request-Method' => 'POST',
-            'Access-Control-Request-Headers' => 'content-type,x-skip-success-notification',
+            'Access-Control-Request-Headers' => 'content-type,authorization',
         ])->options('/api/auth/login');
 
         $response
             ->assertStatus(204)
             ->assertHeader('Access-Control-Allow-Origin', 'https://smarthogv2.vercel.app')
             ->assertHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
-            ->assertHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-CSRF-TOKEN, X-Skip-Success-Notification');
+            ->assertHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     }
 
     public function test_login_post_includes_cors_headers(): void
@@ -35,7 +35,6 @@ class CorsTest extends TestCase
 
         $response = $this->withHeaders([
             'Origin' => 'https://smarthogv2.vercel.app',
-            'X-Skip-Success-Notification' => '1',
         ])->postJson('/api/auth/login', [
             'email' => 'test@example.com',
             'password' => 'password',
@@ -44,6 +43,19 @@ class CorsTest extends TestCase
         $response
             ->assertStatus(200)
             ->assertHeader('Access-Control-Allow-Origin', 'https://smarthogv2.vercel.app')
-            ->assertJsonPath('user.email', 'test@example.com');
+            ->assertJsonPath('data.user.email', 'test@example.com');
+    }
+
+    public function test_disallowed_origin_does_not_receive_allow_origin_header(): void
+    {
+        $response = $this->withHeaders([
+            'Origin' => 'https://example.com',
+            'Access-Control-Request-Method' => 'POST',
+            'Access-Control-Request-Headers' => 'content-type,authorization',
+        ])->options('/api/auth/login');
+
+        $response
+            ->assertStatus(204)
+            ->assertHeaderMissing('Access-Control-Allow-Origin');
     }
 }

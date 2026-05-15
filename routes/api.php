@@ -28,9 +28,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('auth')->controller(AuthController::class)->group(function () {
-    Route::post('/login', 'login');
+    Route::post('/login', 'login')->middleware('throttle:5,1');
     Route::post('/register', 'register');
-    Route::post('/logout', 'logout')->middleware('auth:sanctum');
+});
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/auth/logout', [AuthController::class, 'logout'])->middleware('throttle:10,1');
 });
 
 Route::prefix('/v1')->group(function () {
