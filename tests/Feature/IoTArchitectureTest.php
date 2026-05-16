@@ -120,6 +120,50 @@ class IoTArchitectureTest extends TestCase
         ])->assertUnprocessable();
     }
 
+    public function test_legacy_frontend_value_payload_is_normalized_for_device_actions(): void
+    {
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+        $deviceId = $this->createDevice($user);
+
+        $this->postJson("/api/v1/iot-devices/{$deviceId}/action", [
+            'clientId' => 'web-dashboard',
+            'action' => 'dispenseFeed',
+            'value' => [
+                'feedType' => 'starter',
+                'durationSeconds' => 5,
+            ],
+        ])
+            ->assertCreated()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('command.action', 'dispenseFeed')
+            ->assertJsonPath('command.payload.feedType', 'starter')
+            ->assertJsonPath('command.payload.durationSeconds', 5);
+    }
+
+    public function test_calibrate_feeder_alias_is_accepted_for_legacy_frontend_requests(): void
+    {
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+        $deviceId = $this->createDevice($user);
+
+        $this->postJson("/api/v1/iot-devices/{$deviceId}/action", [
+            'clientId' => 'web-dashboard',
+            'action' => 'calibrateFeeder',
+            'value' => [],
+        ])
+            ->assertCreated()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('command.action', 'calibrateSensor')
+            ->assertJsonPath('command.status', 'pending');
+
+        $this->assertDatabaseHas('device_commands', [
+            'iot_device_id' => $deviceId,
+            'action' => 'calibrateSensor',
+            'status' => 'pending',
+        ]);
+    }
+
     public function test_user_can_create_device_credential_and_secret_is_returned_once(): void
     {
         $user = User::factory()->create();

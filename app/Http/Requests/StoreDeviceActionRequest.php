@@ -31,4 +31,26 @@ class StoreDeviceActionRequest extends FormRequest
             'payload.state' => ['required_if:action,setPowerState', 'string', 'in:on,off'],
         ];
     }
+
+    /**
+     * Normalize older frontend payloads into the current API contract.
+     */
+    protected function prepareForValidation(): void
+    {
+        $normalizedAction = match ($this->input('action')) {
+            'calibrateFeeder' => 'calibrateSensor',
+            default => $this->input('action'),
+        };
+
+        $normalizedPayload = $this->input('payload');
+
+        if ($normalizedPayload === null && is_array($this->input('value'))) {
+            $normalizedPayload = $this->input('value');
+        }
+
+        $this->merge([
+            'action' => $normalizedAction,
+            'payload' => $normalizedPayload,
+        ]);
+    }
 }
