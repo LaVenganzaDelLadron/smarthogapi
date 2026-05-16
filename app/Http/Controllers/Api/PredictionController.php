@@ -44,7 +44,7 @@ class PredictionController extends Controller
     {
         $validated = $request->validated();
         $this->authorizePen($validated['pen_id']);
-        $overrides = $request->except(['pen_id', 'async', 'use_cache']);
+        $overrides = $request->safe()->except(['pen_id', 'async', 'use_cache']);
 
         $result = $this->fastapi->predictFeedRecommendation(
             $validated['pen_id'],
@@ -53,21 +53,9 @@ class PredictionController extends Controller
             $request->boolean('use_cache', true)
         );
 
-        if (! $result['success']) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Prediction failed',
-            ], 400);
-        }
-
         $statusCode = $request->boolean('async') ? 202 : 200;
 
-        return response()->json([
-            'success' => true,
-            'prediction_id' => $result['prediction_id'] ?? null,
-            'message' => $result['message'] ?? null,
-            'data' => $result['data'] ?? null,
-        ], $statusCode);
+        return $this->predictionResponse($result, $statusCode, true);
     }
 
     /**
@@ -85,7 +73,7 @@ class PredictionController extends Controller
     {
         $validated = $request->validated();
         $this->authorizePen($validated['pen_id']);
-        $overrides = $request->except(['pen_id', 'async', 'use_cache']);
+        $overrides = $request->safe()->except(['pen_id', 'async', 'use_cache']);
 
         $result = $this->fastapi->predictWeightTrend(
             $validated['pen_id'],
@@ -94,20 +82,9 @@ class PredictionController extends Controller
             $request->boolean('use_cache', true)
         );
 
-        if (! $result['success']) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Prediction failed',
-            ], 400);
-        }
-
         $statusCode = $request->boolean('async') ? 202 : 200;
 
-        return response()->json([
-            'success' => true,
-            'message' => $result['message'] ?? null,
-            'data' => $result['data'] ?? null,
-        ], $statusCode);
+        return $this->predictionResponse($result, $statusCode);
     }
 
     /**
@@ -125,7 +102,7 @@ class PredictionController extends Controller
     {
         $validated = $request->validated();
         $this->authorizePen($validated['pen_id']);
-        $overrides = $request->except(['pen_id', 'async', 'use_cache']);
+        $overrides = $request->safe()->except(['pen_id', 'async', 'use_cache']);
 
         $result = $this->fastapi->predictPenStatus(
             $validated['pen_id'],
@@ -134,20 +111,9 @@ class PredictionController extends Controller
             $request->boolean('use_cache', true)
         );
 
-        if (! $result['success']) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Prediction failed',
-            ], 400);
-        }
-
         $statusCode = $request->boolean('async') ? 202 : 200;
 
-        return response()->json([
-            'success' => true,
-            'message' => $result['message'] ?? null,
-            'data' => $result['data'] ?? null,
-        ], $statusCode);
+        return $this->predictionResponse($result, $statusCode);
     }
 
     /**
@@ -170,21 +136,9 @@ class PredictionController extends Controller
             $request->boolean('async', false)
         );
 
-        if (! $result['success']) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Prediction failed',
-            ], 400);
-        }
-
         $statusCode = $request->boolean('async') ? 202 : 200;
 
-        return response()->json([
-            'success' => true,
-            'count' => $result['count'],
-            'message' => $result['message'] ?? null,
-            'data' => $result['data'] ?? null,
-        ], $statusCode);
+        return $this->predictionResponse($result, $statusCode, false, true);
     }
 
     /**
@@ -207,21 +161,9 @@ class PredictionController extends Controller
             $request->boolean('async', false)
         );
 
-        if (! $result['success']) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Prediction failed',
-            ], 400);
-        }
-
         $statusCode = $request->boolean('async') ? 202 : 200;
 
-        return response()->json([
-            'success' => true,
-            'count' => $result['count'],
-            'message' => $result['message'] ?? null,
-            'data' => $result['data'] ?? null,
-        ], $statusCode);
+        return $this->predictionResponse($result, $statusCode, false, true);
     }
 
     /**
@@ -244,21 +186,40 @@ class PredictionController extends Controller
             $request->boolean('async', false)
         );
 
-        if (! $result['success']) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Prediction failed',
-            ], 400);
-        }
-
         $statusCode = $request->boolean('async') ? 202 : 200;
 
-        return response()->json([
+        return $this->predictionResponse($result, $statusCode, false, true);
+    }
+
+    private function predictionResponse(
+        array $result,
+        int $successStatus,
+        bool $includePredictionId = false,
+        bool $includeCount = false
+    ): JsonResponse {
+        if (! ($result['success'] ?? false)) {
+            return response()->json([
+                'success' => false,
+                'message' => $result['message'] ?? 'Prediction failed',
+                'error' => $result['error'] ?? null,
+            ], $result['status'] ?? 400);
+        }
+
+        $payload = [
             'success' => true,
-            'count' => $result['count'],
             'message' => $result['message'] ?? null,
             'data' => $result['data'] ?? null,
-        ], $statusCode);
+        ];
+
+        if ($includePredictionId) {
+            $payload['prediction_id'] = $result['prediction_id'] ?? null;
+        }
+
+        if ($includeCount) {
+            $payload['count'] = $result['count'] ?? 0;
+        }
+
+        return response()->json($payload, $successStatus);
     }
 
     private function authorizePen(int $penId): void

@@ -35,13 +35,10 @@ return [
         ],
     ],
 
-    'prediction_api' => [
-        'url' => env('PREDICTION_API_URL', 'http://localhost:5000'),
-    ],
-
     'fastapi' => [
         'url' => env('FASTAPI_URL', 'http://localhost:5000'),
         'timeout' => env('FASTAPI_TIMEOUT', 30),
+        'connect_timeout' => env('FASTAPI_CONNECT_TIMEOUT', 5),
         'webhooks' => explode(',', env('FASTAPI_WEBHOOKS', '')),
     ],
 
