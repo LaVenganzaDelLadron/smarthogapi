@@ -39,6 +39,7 @@ class StoreDeviceActionRequest extends FormRequest
     {
         $normalizedAction = match ($this->input('action')) {
             'calibrateFeeder' => 'calibrateSensor',
+            'emergencyStop', 'stopFeed' => 'setPowerState',
             default => $this->input('action'),
         };
 
@@ -46,6 +47,13 @@ class StoreDeviceActionRequest extends FormRequest
 
         if ($normalizedPayload === null && is_array($this->input('value'))) {
             $normalizedPayload = $this->input('value');
+        }
+
+        if (in_array($this->input('action'), ['emergencyStop', 'stopFeed'], true)) {
+            $normalizedPayload = [
+                ...is_array($normalizedPayload) ? $normalizedPayload : [],
+                'state' => 'off',
+            ];
         }
 
         $this->merge([

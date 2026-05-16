@@ -168,6 +168,30 @@ class IoTArchitectureTest extends TestCase
         ]);
     }
 
+    public function test_emergency_stop_alias_is_normalized_to_power_off(): void
+    {
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+        $deviceId = $this->createDevice($user);
+
+        $this->postJson("/api/v1/iot-devices/{$deviceId}/action", [
+            'clientId' => 'web-dashboard',
+            'action' => 'emergencyStop',
+            'payload' => [],
+            'value' => [],
+        ])
+            ->assertCreated()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('command.action', 'setPowerState')
+            ->assertJsonPath('command.payload.state', 'off');
+
+        $this->assertDatabaseHas('device_commands', [
+            'iot_device_id' => $deviceId,
+            'action' => 'setPowerState',
+            'status' => 'pending',
+        ]);
+    }
+
     public function test_sinric_mapped_devices_forward_set_power_state_to_sinric_api(): void
     {
         Http::fake([
