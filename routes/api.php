@@ -23,9 +23,12 @@ use App\Http\Controllers\IotDevicesController;
 use App\Http\Controllers\MlModelsController;
 use App\Http\Controllers\SensorReadingsController;
 use App\Http\Controllers\SensorsController;
+use App\Http\Controllers\SinricWebhookController;
 use App\Services\PredictionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+
+Route::post('/sinric/webhook', [SinricWebhookController::class, 'handle']);
 
 Route::prefix('auth')->controller(AuthController::class)->group(function () {
     Route::post('/login', 'login')->middleware('throttle:5,1');

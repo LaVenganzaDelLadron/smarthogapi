@@ -13,7 +13,22 @@ class IotDevices extends Model
 
     protected $table = 'iot_devices';
 
-    protected $fillable = ['hog_pen_id', 'type', 'api_provider', 'status'];
+    protected $fillable = [
+        'hog_pen_id',
+        'type',
+        'api_provider',
+        'external_provider',
+        'external_device_id',
+        'external_metadata',
+        'status',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'external_metadata' => 'array',
+        ];
+    }
 
     public function hogpen(): BelongsTo
     {

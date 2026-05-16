@@ -25,6 +25,9 @@ class IotDevicesRequests extends FormRequest
             'hog_pen_id' => ['required', 'exists:hog_pens,id'],
             'type' => ['required', 'string', 'max:50'],
             'api_provider' => ['required', 'string', 'max:50'],
+            'external_provider' => ['sometimes', 'nullable', 'string', 'max:50'],
+            'external_device_id' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'external_metadata' => ['sometimes', 'nullable', 'array'],
             'status' => ['required', 'string', 'in:active, inactive'],
         ];
 
@@ -33,6 +36,9 @@ class IotDevicesRequests extends FormRequest
                 'hog_pen_id' => ['sometimes', 'required', 'exists:hog_pens,id'],
                 'type' => ['sometimes', 'required', 'string', 'max:50'],
                 'api_provider' => ['sometimes', 'required', 'string', 'max:50'],
+                'external_provider' => ['sometimes', 'nullable', 'string', 'max:50'],
+                'external_device_id' => ['sometimes', 'nullable', 'string', 'max:255'],
+                'external_metadata' => ['sometimes', 'nullable', 'array'],
                 'status' => ['sometimes', 'required', 'string', 'in:active, inactive'],
             ];
         }
