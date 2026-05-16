@@ -21,14 +21,17 @@ class SinricApiService
             throw new RuntimeException('IoT device is not mapped to a Sinric device.');
         }
 
-        $token = (string) config('services.sinric.token');
+        $apiKey = (string) config('services.sinric.api_key');
 
-        if ($token === '') {
-            throw new RuntimeException('Sinric API token is not configured.');
+        if ($apiKey === '') {
+            throw new RuntimeException('Sinric API key is not configured.');
         }
 
         return $this->http
-            ->withToken($token)
+            ->withHeaders([
+                'X-SINRIC-API-KEY' => $apiKey,
+                'Content-Type' => 'application/json',
+            ])
             ->timeout((int) config('services.sinric.timeout'))
             ->connectTimeout((int) config('services.sinric.connect_timeout'))
             ->retry(2, 250)

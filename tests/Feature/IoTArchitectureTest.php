@@ -176,7 +176,7 @@ class IoTArchitectureTest extends TestCase
             ]),
         ]);
 
-        config()->set('services.sinric.token', 'sinric-token');
+        config()->set('services.sinric.api_key', 'sinric-api-key');
         $user = User::factory()->create();
         Sanctum::actingAs($user);
         $deviceId = $this->createDevice($user, [
@@ -196,7 +196,7 @@ class IoTArchitectureTest extends TestCase
         Http::assertSent(function ($request) {
             return $request->method() === 'GET'
                 && str_contains($request->url(), '/devices/sinric-switch-1/action')
-                && $request->hasHeader('Authorization', 'Bearer sinric-token')
+                && $request->hasHeader('X-SINRIC-API-KEY', 'sinric-api-key')
                 && $request['action'] === 'setPowerState'
                 && $request['clientId'] === 'smarthog-web'
                 && $request['type'] === 'request'
@@ -209,7 +209,7 @@ class IoTArchitectureTest extends TestCase
         Http::fake();
         Queue::fake();
 
-        config()->set('services.sinric.token', 'sinric-token');
+        config()->set('services.sinric.api_key', 'sinric-api-key');
         $user = User::factory()->create();
         Sanctum::actingAs($user);
         $deviceId = $this->createDevice($user, [
@@ -247,7 +247,7 @@ class IoTArchitectureTest extends TestCase
         Http::fake();
         Queue::fake();
 
-        config()->set('services.sinric.token', 'sinric-token');
+        config()->set('services.sinric.api_key', 'sinric-api-key');
         $user = User::factory()->create();
         Sanctum::actingAs($user);
         $deviceId = $this->createDevice($user, [

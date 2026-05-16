@@ -44,7 +44,7 @@ return [
 
     'sinric' => [
         'base_url' => env('SINRIC_API_BASE_URL', 'https://api.sinric.pro/api/v1'),
-        'token' => env('SINRIC_API_TOKEN'),
+        'api_key' => env('SINRIC_API_KEY'),
         'timeout' => env('SINRIC_API_TIMEOUT', 10),
         'connect_timeout' => env('SINRIC_API_CONNECT_TIMEOUT', 5),
         'client_id' => env('SINRIC_API_CLIENT_ID', 'smarthog-web'),
