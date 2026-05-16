@@ -7,6 +7,7 @@ use App\Models\DeviceCommand;
 use App\Models\DeviceCredential;
 use App\Models\User;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
@@ -170,13 +171,21 @@ class IoTArchitectureTest extends TestCase
     public function test_sinric_mapped_devices_forward_set_power_state_to_sinric_api(): void
     {
         Http::fake([
+            'https://api.sinric.pro/api/v1/auth' => Http::response([
+                'success' => true,
+                'accessToken' => 'sinric-access-token',
+                'expiresIn' => 604800,
+            ]),
             'https://api.sinric.pro/api/v1/devices/*/action*' => Http::response([
                 'success' => true,
                 'message' => 'OK. Your message has been queued for processing.',
             ]),
         ]);
 
-        config()->set('services.sinric.api_key', 'sinric-api-key');
+        Cache::flush();
+        config()->set('services.sinric.email', 'user@example.com');
+        config()->set('services.sinric.password', 'secret-password');
+        config()->set('services.sinric.client_id', 'android-app');
         $user = User::factory()->create();
         Sanctum::actingAs($user);
         $deviceId = $this->createDevice($user, [
@@ -194,11 +203,18 @@ class IoTArchitectureTest extends TestCase
             ->assertJsonPath('command.action', 'setPowerState');
 
         Http::assertSent(function ($request) {
+            return $request->method() === 'POST'
+                && $request->url() === 'https://api.sinric.pro/api/v1/auth'
+                && $request->hasHeader('Authorization')
+                && $request['client_id'] === 'android-app';
+        });
+
+        Http::assertSent(function ($request) {
             return $request->method() === 'GET'
                 && str_contains($request->url(), '/devices/sinric-switch-1/action')
-                && $request->hasHeader('X-SINRIC-API-KEY', 'sinric-api-key')
+                && $request->hasHeader('Authorization', 'Bearer sinric-access-token')
                 && $request['action'] === 'setPowerState'
-                && $request['clientId'] === 'smarthog-web'
+                && $request['clientId'] === 'android-app'
                 && $request['type'] === 'request'
                 && $request['value'] === '{"state":"On"}';
         });
@@ -206,10 +222,23 @@ class IoTArchitectureTest extends TestCase
 
     public function test_sinric_mapped_dispense_feed_is_forwarded_as_timed_power_cycle(): void
     {
-        Http::fake();
+        Http::fake([
+            'https://api.sinric.pro/api/v1/auth' => Http::response([
+                'success' => true,
+                'accessToken' => 'sinric-access-token',
+                'expiresIn' => 604800,
+            ]),
+            'https://api.sinric.pro/api/v1/devices/*/action*' => Http::response([
+                'success' => true,
+                'message' => 'OK. Your message has been queued for processing.',
+            ]),
+        ]);
         Queue::fake();
 
-        config()->set('services.sinric.api_key', 'sinric-api-key');
+        Cache::flush();
+        config()->set('services.sinric.email', 'user@example.com');
+        config()->set('services.sinric.password', 'secret-password');
+        config()->set('services.sinric.client_id', 'android-app');
         $user = User::factory()->create();
         Sanctum::actingAs($user);
         $deviceId = $this->createDevice($user, [
@@ -247,7 +276,10 @@ class IoTArchitectureTest extends TestCase
         Http::fake();
         Queue::fake();
 
-        config()->set('services.sinric.api_key', 'sinric-api-key');
+        Cache::flush();
+        config()->set('services.sinric.email', 'user@example.com');
+        config()->set('services.sinric.password', 'secret-password');
+        config()->set('services.sinric.client_id', 'android-app');
         $user = User::factory()->create();
         Sanctum::actingAs($user);
         $deviceId = $this->createDevice($user, [
