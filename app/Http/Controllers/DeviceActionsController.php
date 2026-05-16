@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreDeviceActionRequest;
 use App\Http\Resources\DeviceCommandResource;
+use App\Jobs\SendSinricPowerStateJob;
 use App\Models\IotDevices;
 use App\Services\DeviceCommandService;
 use App\Services\SinricApiService;
@@ -41,6 +42,21 @@ class DeviceActionsController extends Controller
         }
 
         if ($validated['action'] !== 'setPowerState') {
+            if ($validated['action'] !== 'dispenseFeed') {
+                return;
+            }
+
+            $durationSeconds = (int) ($validated['payload']['durationSeconds'] ?? 0);
+
+            if ($durationSeconds < 1) {
+                return;
+            }
+
+            $this->sinricApiService->sendPowerState($iotDevice, ['state' => 'on']);
+
+            SendSinricPowerStateJob::dispatch($iotDevice->id, 'off')
+                ->delay(now()->addSeconds($durationSeconds));
+
             return;
         }
 

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\SendSinricPowerStateJob;
 use App\Models\DeviceCommand;
 use App\Models\DeviceCredential;
 use App\Models\User;
@@ -9,6 +10,7 @@ use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -202,9 +204,10 @@ class IoTArchitectureTest extends TestCase
         });
     }
 
-    public function test_non_power_actions_are_not_forwarded_to_sinric_api(): void
+    public function test_sinric_mapped_dispense_feed_is_forwarded_as_timed_power_cycle(): void
     {
         Http::fake();
+        Queue::fake();
 
         config()->set('services.sinric.token', 'sinric-token');
         $user = User::factory()->create();
@@ -222,7 +225,43 @@ class IoTArchitectureTest extends TestCase
             ],
         ])->assertCreated();
 
+        Http::assertSent(function ($request) {
+            return $request->method() === 'GET'
+                && str_contains($request->url(), '/devices/sinric-switch-1/action')
+                && $request['action'] === 'setPowerState'
+                && $request['value'] === '{"state":"On"}';
+        });
+
+        Queue::assertPushed(SendSinricPowerStateJob::class, function (SendSinricPowerStateJob $job) use ($deviceId) {
+            $delay = $job->delay;
+
+            return $job->iotDeviceId === $deviceId
+                && $job->state === 'off'
+                && $delay instanceof \DateTimeInterface
+                && $delay->getTimestamp() >= now()->addSeconds(9)->getTimestamp();
+        });
+    }
+
+    public function test_non_supported_sinric_actions_are_not_forwarded_to_sinric_api(): void
+    {
+        Http::fake();
+        Queue::fake();
+
+        config()->set('services.sinric.token', 'sinric-token');
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+        $deviceId = $this->createDevice($user, [
+            'external_provider' => 'sinricpro',
+            'external_device_id' => 'sinric-switch-1',
+        ]);
+
+        $this->postJson("/api/v1/iot-devices/{$deviceId}/action", [
+            'action' => 'calibrateSensor',
+            'payload' => [],
+        ])->assertCreated();
+
         Http::assertNothingSent();
+        Queue::assertNothingPushed();
     }
 
     public function test_user_can_create_device_credential_and_secret_is_returned_once(): void
