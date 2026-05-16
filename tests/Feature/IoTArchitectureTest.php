@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -164,6 +165,66 @@ class IoTArchitectureTest extends TestCase
         ]);
     }
 
+    public function test_sinric_mapped_devices_forward_set_power_state_to_sinric_api(): void
+    {
+        Http::fake([
+            'https://api.sinric.pro/api/v1/devices/*/action*' => Http::response([
+                'success' => true,
+                'message' => 'OK. Your message has been queued for processing.',
+            ]),
+        ]);
+
+        config()->set('services.sinric.token', 'sinric-token');
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+        $deviceId = $this->createDevice($user, [
+            'external_provider' => 'sinricpro',
+            'external_device_id' => 'sinric-switch-1',
+        ]);
+
+        $this->postJson("/api/v1/iot-devices/{$deviceId}/action", [
+            'action' => 'setPowerState',
+            'payload' => [
+                'state' => 'on',
+            ],
+        ])
+            ->assertCreated()
+            ->assertJsonPath('command.action', 'setPowerState');
+
+        Http::assertSent(function ($request) {
+            return $request->method() === 'GET'
+                && str_contains($request->url(), '/devices/sinric-switch-1/action')
+                && $request->hasHeader('Authorization', 'Bearer sinric-token')
+                && $request['action'] === 'setPowerState'
+                && $request['clientId'] === 'smarthog-web'
+                && $request['type'] === 'request'
+                && $request['value'] === '{"state":"On"}';
+        });
+    }
+
+    public function test_non_power_actions_are_not_forwarded_to_sinric_api(): void
+    {
+        Http::fake();
+
+        config()->set('services.sinric.token', 'sinric-token');
+        $user = User::factory()->create();
+        Sanctum::actingAs($user);
+        $deviceId = $this->createDevice($user, [
+            'external_provider' => 'sinricpro',
+            'external_device_id' => 'sinric-switch-1',
+        ]);
+
+        $this->postJson("/api/v1/iot-devices/{$deviceId}/action", [
+            'action' => 'dispenseFeed',
+            'payload' => [
+                'feedType' => 'starter',
+                'durationSeconds' => 10,
+            ],
+        ])->assertCreated();
+
+        Http::assertNothingSent();
+    }
+
     public function test_user_can_create_device_credential_and_secret_is_returned_once(): void
     {
         $user = User::factory()->create();
@@ -265,7 +326,10 @@ class IoTArchitectureTest extends TestCase
             ->assertUnauthorized();
     }
 
-    private function createDevice(?User $user = null): int
+    /**
+     * @param  array<string, mixed>  $overrides
+     */
+    private function createDevice(?User $user = null, array $overrides = []): int
     {
         $user ??= User::factory()->create();
 
@@ -290,9 +354,13 @@ class IoTArchitectureTest extends TestCase
             'type' => 'feeder',
             'hog_pen_id' => $hogPenId,
             'api_provider' => 'smarthog',
+            'external_provider' => null,
+            'external_device_id' => null,
+            'external_metadata' => null,
             'status' => 'active',
             'created_at' => now(),
             'updated_at' => now(),
+            ...$overrides,
         ]);
     }
 
